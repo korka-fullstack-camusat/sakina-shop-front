@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "WebFetch(domain:www.soutouraks.shop)",
+      "Bash(find C:/AROKA-TECH/SAKINA-SHOP/frontend/src -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" -o -name \"*.css\" \\\\\\) -exec grep -l \"brand\\\\|purple\\\\|violet\\\\|fuchsia\\\\|magenta\\\\|mauve\" {} \\\\;)",
+      "Bash(.venv\\\\Scripts\\\\pip install *)",
+      "Bash(C:/AROKA-TECH/SAKINA-SHOP/backend/.venv/Scripts/pip.exe install *)",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(C:/AROKA-TECH/SAKINA-SHOP/backend/.venv/Scripts/python.exe -c \"import edge_tts; print\\('edge-tts OK'\\)\")",
+      "Bash(ffmpeg -version)",
+      "Bash(C:/AROKA-TECH/SAKINA-SHOP/backend/.venv/Scripts/python.exe -c \"import imageio_ffmpeg; print\\('ffmpeg path:', imageio_ffmpeg.get_ffmpeg_exe\\(\\)\\)\")",
+      "Bash(.venv\\\\Scripts\\\\pip list *)",
+      "Bash(findstr /i \"edge-tts imageio-ffmpeg fal-client\")",
+      "Read(//mnt/c/AROKA-TECH/SAKINA-SHOP/**)",
+      "Bash(.venv/Scripts/pip list *)",
+      "Read(//mnt/**)",
+      "Read(//c//**)",
+      "Bash(/mnt/c/AROKA-TECH/SAKINA-SHOP/backend/.venv/Scripts/pip install *)",
+      "PowerShell(cd C:\\\\AROKA-TECH\\\\SAKINA-SHOP\\\\frontend; & \"node_modules\\\\.bin\\\\tsc.cmd\" --noEmit 2>&1 | Where-Object { $_ -match \"VideoGenerateModal\" })"
+    ]
+  }
+}

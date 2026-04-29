@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand: 5 150 105;   /* emerald-600 */
+    --gold:  212 134 0;
+  }
+
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar         { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track   { background: #fdf8f0; }
+  ::-webkit-scrollbar-thumb   { background: #d48600; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: #a86200; }
+}
+
+@layer utilities {
+  /* Hide scrollbar but keep scroll */
+  .scrollbar-hide                        { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-hide::-webkit-scrollbar    { display: none; }
+
+  /* ── Gradients ─────────────────────────────────────────── */
+  .brand-gradient {
+    background: linear-gradient(135deg, #059669 0%, #064e3b 100%);
+  }
+  .gold-gradient {
+    background: linear-gradient(135deg, #f0aa0a 0%, #d48600 60%, #a86200 100%);
+  }
+
+  /* Hero : vert forêt très profond → émeraude → vert foncé */
+  .hero-gradient {
+    background: linear-gradient(
+      135deg,
+      #022c22 0%,
+      #064e3b 35%,
+      #047857 70%,
+      #022c22 100%
+    );
+  }
+
+  /* Subtle card hover */
+  .card-hover { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+  .card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px -12px rgba(2, 44, 34, 0.15);
+  }
+
+  /* Modal pop-in */
+  .animate-scale-in {
+    animation: scaleIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.92) translateY(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+}
