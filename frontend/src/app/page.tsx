@@ -248,7 +248,7 @@ export default function ShopPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <a
-              href="https://wa.me/221000000000"
+              href="https://wa.me/224624378761"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center justify-center gap-2.5 bg-[#25D366]

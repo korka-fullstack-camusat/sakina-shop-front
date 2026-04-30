@@ -182,7 +182,7 @@ export function ShopHeader() {
                 Se connecter
               </button>
               <a
-                href="https://wa.me/221000000000"
+                href="https://wa.me/224624378761"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl
