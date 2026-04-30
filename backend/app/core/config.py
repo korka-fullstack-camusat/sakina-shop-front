@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     SNAPCHAT_ACCESS_TOKEN: str = ""
     SNAPCHAT_AD_ACCOUNT_ID: str = ""
 
+    # Cloudinary (stockage images & vidéos)
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY:    str = ""
+    CLOUDINARY_API_SECRET: str = ""
+
     # Facebook App (OAuth)
     FACEBOOK_APP_ID:     str = ""
     FACEBOOK_APP_SECRET: str = ""
