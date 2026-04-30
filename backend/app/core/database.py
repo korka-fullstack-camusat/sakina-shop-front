@@ -10,16 +10,17 @@ async def connect_db() -> None:
     global _client
     _client = AsyncIOMotorClient(settings.MONGODB_URL)
 
-    from app.models.user        import User
-    from app.models.product     import Product
-    from app.models.video       import VideoJob
-    from app.models.social_post import SocialPost
-    from app.models.order       import Order
-    from app.models.settings    import ShopSettings
+    from app.models.user          import User
+    from app.models.product       import Product
+    from app.models.video         import VideoJob
+    from app.models.social_post   import SocialPost
+    from app.models.order         import Order
+    from app.models.settings      import ShopSettings
+    from app.models.facebook_page import FacebookPage
 
     await init_beanie(
         database=_client[settings.DATABASE_NAME],
-        document_models=[User, Product, VideoJob, SocialPost, Order, ShopSettings],
+        document_models=[User, Product, VideoJob, SocialPost, Order, ShopSettings, FacebookPage],
     )
     logger.info("MongoDB Atlas connecté", database=settings.DATABASE_NAME)
 

@@ -6,7 +6,9 @@ from typing import Literal
 
 class SocialPost(Document):
     product_id: str
-    platform: Literal["tiktok", "snapchat"]
+    platform: Literal["tiktok", "snapchat", "facebook"]
+    account_id: str | None = None    # Pour Facebook : "1" ou "2"
+    account_name: str | None = None  # Nom affiché du compte Facebook
     status: Literal["pending", "published", "failed"] = "pending"
     post_id: str | None = None       # ID retourné par la plateforme
     post_url: str | None = None

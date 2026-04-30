@@ -26,6 +26,7 @@ class SettingsUpdate(BaseModel):
     shop_name:                 Optional[str]   = None
     tagline:                   Optional[str]   = None
     promo_banner:              Optional[str]   = None
+    website_url:               Optional[str]   = None
     phone:                     Optional[str]   = None
     whatsapp:                  Optional[str]   = None
     email:                     Optional[str]   = None

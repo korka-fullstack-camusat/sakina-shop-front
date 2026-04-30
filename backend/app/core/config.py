@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     SNAPCHAT_ACCESS_TOKEN: str = ""
     SNAPCHAT_AD_ACCOUNT_ID: str = ""
 
+    # Facebook App (OAuth)
+    FACEBOOK_APP_ID:     str = ""
+    FACEBOOK_APP_SECRET: str = ""
+
     class Config:
         env_file = ".env"
         case_sensitive = True

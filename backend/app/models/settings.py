@@ -9,9 +9,10 @@ class ShopSettings(Document):
     key: str = "main"
 
     # Identité
-    shop_name:   str = "Sakina Shop"
-    tagline:     str = "Élégance Africaine & Mode Luxueuse"
-    promo_banner: str = "✨ Livraison gratuite dès 50 000 FCFA d'achat · Qualité premium, Élégance africaine"
+    shop_name:    str = "Sakina Shop"
+    tagline:      str = ""
+    promo_banner: str = "✨ Livraison gratuite dès 50 000 FCFA d'achat · Qualité premium"
+    website_url:  str = ""   # Ex: https://sakina-shop.com
 
     # Contact
     phone:    str = ""

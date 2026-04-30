@@ -113,5 +113,76 @@ class SnapchatService:
             raise
 
 
-tiktok_service = TikTokService()
+class FacebookService:
+    """
+    Publication sur une Page Facebook via l'API Graph (v18).
+    Nécessite un Page Access Token et un Page ID.
+    """
+
+    BASE_URL = "https://graph.facebook.com/v18.0"
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=2, max=8))
+    async def post_video(
+        self,
+        page_id: str,
+        access_token: str,
+        video_url: str,
+        description: str,
+    ) -> str:
+        """
+        Publie une vidéo sur une Page Facebook.
+        Retourne l'ID du post créé.
+        """
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                f"{self.BASE_URL}/{page_id}/videos",
+                data={
+                    "access_token": access_token,
+                    "file_url": video_url,
+                    "description": description,
+                    "published": "true",
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            post_id: str = data.get("id", "")
+            logger.info("Facebook vidéo publiée", page_id=page_id, post_id=post_id)
+            return post_id
+
+    async def publish_product(
+        self,
+        post: SocialPost,
+        product: Product,
+        page_id: str,
+        access_token: str,
+        account_name: str,
+    ) -> None:
+        if not product.video_url:
+            raise ValueError("Aucune vidéo disponible pour la publication Facebook")
+        try:
+            description = (
+                f"✨ {product.name}\n"
+                f"💰 {int(product.price):,} {product.currency}\n"
+                f"{(product.description or '')[:300]}\n\n"
+                f"📦 Commandez maintenant !"
+            )
+            post_id = await self.post_video(
+                page_id, access_token, product.video_url, description
+            )
+            post_url = f"https://www.facebook.com/{page_id}/videos/{post_id}"
+            await post.set({
+                SocialPost.status:       "published",
+                SocialPost.post_id:      post_id,
+                SocialPost.post_url:     post_url,
+                SocialPost.published_at: datetime.now(timezone.utc),
+            })
+            logger.info("Publié sur Facebook", page_id=page_id, product_id=str(product.id))
+        except Exception as exc:
+            logger.error("Erreur publication Facebook", error=str(exc))
+            await post.set({SocialPost.status: "failed", SocialPost.error: str(exc)})
+            raise
+
+
+tiktok_service   = TikTokService()
 snapchat_service = SnapchatService()
+facebook_service = FacebookService()
