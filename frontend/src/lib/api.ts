@@ -1,7 +1,17 @@
 import axios from "axios";
 import { useAuthStore } from "@/store/auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_URL     = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_BASE    = API_URL.replace("/api/v1", "");
+
+/** Corrige les URLs d'images qui pointent encore vers localhost en développement */
+export function resolveUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("http://localhost") || url.startsWith("http://127.0.0.1")) {
+    return url.replace(/http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, API_BASE);
+  }
+  return url;
+}
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -14,8 +24,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/** Remplace récursivement toutes les URLs localhost dans un objet JSON */
+function fixLocalhostUrls(obj: unknown): unknown {
+  if (typeof obj === "string") return resolveUrl(obj);
+  if (Array.isArray(obj))      return obj.map(fixLocalhostUrls);
+  if (obj && typeof obj === "object") {
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [k, fixLocalhostUrls(v)])
+    );
+  }
+  return obj;
+}
+
 api.interceptors.response.use(
-  (r) => r,
+  (r) => { r.data = fixLocalhostUrls(r.data); return r; },
   (error) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
       useAuthStore.getState().logout();

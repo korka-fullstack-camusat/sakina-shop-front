@@ -47,6 +47,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://sakina-shop.vercel.app",
+        "https://sakina-shop-196evjs8i-korka-camusats-projects.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
