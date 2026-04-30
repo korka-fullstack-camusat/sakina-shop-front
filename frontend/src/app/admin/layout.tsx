@@ -5,7 +5,8 @@ import { useAuthStore } from "@/store/auth";
 import { useQuery } from "@tanstack/react-query";
 import { ordersApi } from "@/lib/api";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { Menu, ShoppingBag, Bell } from "lucide-react";
+import { Menu, Bell } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -73,12 +74,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </button>
 
             {/* Logo centré */}
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg brand-gradient flex items-center justify-center">
-                <ShoppingBag className="text-white" size={13} />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-white border border-gray-100 shadow-sm
+                              flex items-center justify-center">
+                <Image
+                  src="/logo.png"
+                  alt="Sakina Shop"
+                  width={28}
+                  height={28}
+                  className="w-6 h-6 object-contain"
+                />
               </div>
               <span className="font-serif font-bold text-brand-950 text-base">
-                Sakina <span className="text-gold-600">Admin</span>
+                Sakina <span className="text-brand-600">Admin</span>
               </span>
             </div>
 

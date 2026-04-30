@@ -32,7 +32,9 @@ interface VideoJob {
 interface SocialPost {
   id: string;
   product_id: string;
-  platform: "tiktok" | "snapchat";
+  platform: "tiktok" | "snapchat" | "facebook";
+  account_id: string | null;
+  account_name: string | null;
   status: "pending" | "published" | "failed";
   post_id: string | null;
   post_url: string | null;

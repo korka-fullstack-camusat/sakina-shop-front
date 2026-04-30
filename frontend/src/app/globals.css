@@ -4,8 +4,8 @@
 
 @layer base {
   :root {
-    --brand: 5 150 105;   /* emerald-600 */
-    --gold:  212 134 0;
+    --brand: 30 120 40;    /* brand-600 vert forêt */
+    --lime:  132 204 22;   /* lime-500 vert vif */
   }
 
   * {
@@ -17,32 +17,36 @@
 
   /* Scrollbar */
   ::-webkit-scrollbar         { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track   { background: #fdf8f0; }
-  ::-webkit-scrollbar-thumb   { background: #d48600; border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: #a86200; }
+  ::-webkit-scrollbar-track   { background: #f2f9f3; }
+  ::-webkit-scrollbar-thumb   { background: #2e9438; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: #1e7828; }
 }
 
 @layer utilities {
-  /* Hide scrollbar but keep scroll */
-  .scrollbar-hide                        { -ms-overflow-style: none; scrollbar-width: none; }
-  .scrollbar-hide::-webkit-scrollbar    { display: none; }
+  /* Hide scrollbar */
+  .scrollbar-hide                      { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-hide::-webkit-scrollbar  { display: none; }
 
-  /* ── Gradients ─────────────────────────────────────────── */
+  /* ── Gradients inspirés du logo ─────────────────────────────── */
+
+  /* Gradient principal : vert vif logo → vert forêt (comme le S) */
   .brand-gradient {
-    background: linear-gradient(135deg, #059669 0%, #064e3b 100%);
-  }
-  .gold-gradient {
-    background: linear-gradient(135deg, #f0aa0a 0%, #d48600 60%, #a86200 100%);
+    background: linear-gradient(135deg, #4cad55 0%, #0a3212 100%);
   }
 
-  /* Hero : vert forêt très profond → émeraude → vert foncé */
+  /* Gradient accroche : vert lime → vert forêt (reflet métallique du S) */
+  .lime-gradient {
+    background: linear-gradient(135deg, #84cc16 0%, #1e7828 60%, #0a3212 100%);
+  }
+
+  /* Hero : vert presque noir → forêt profond → vert moyen (comme le fond du logo) */
   .hero-gradient {
     background: linear-gradient(
       135deg,
-      #022c22 0%,
-      #064e3b 35%,
-      #047857 70%,
-      #022c22 100%
+      #041a08 0%,
+      #0a3212 30%,
+      #185f20 65%,
+      #1e7828 100%
     );
   }
 
@@ -50,7 +54,7 @@
   .card-hover { transition: transform 0.3s ease, box-shadow 0.3s ease; }
   .card-hover:hover {
     transform: translateY(-4px);
-    box-shadow: 0 20px 40px -12px rgba(2, 44, 34, 0.15);
+    box-shadow: 0 20px 40px -12px rgba(4, 26, 8, 0.18);
   }
 
   /* Modal pop-in */
@@ -62,4 +66,22 @@
     to   { opacity: 1; transform: scale(1) translateY(0); }
   }
 
+  /* Barre de progression vidéo */
+  .animate-progress-bar {
+    animation: progressBar 2s ease-in-out infinite;
+    width: 60%;
+  }
+  @keyframes progressBar {
+    0%   { transform: translateX(-100%); }
+    50%  { transform: translateX(120%); }
+    100% { transform: translateX(-100%); }
+  }
+
+  /* Texte gradient vert (pour titres) */
+  .text-logo-gradient {
+    background: linear-gradient(135deg, #78c480 0%, #4cad55 50%, #1e7828 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }

@@ -75,12 +75,24 @@ export const videosApi = {
 };
 
 // ── Social ────────────────────────────────────────────────────────────────────
+export interface PublishTarget {
+  platform:   "tiktok" | "snapchat" | "facebook";
+  account_id?: string;  // "1" ou "2" pour Facebook
+}
+
+export interface FacebookAccount {
+  id:   string;
+  name: string;
+}
+
 export const socialApi = {
-  publish:           (product_id: string, platforms: ("tiktok" | "snapchat")[]) =>
-    api.post("/social/publish", { product_id, platforms }),
-  getPostsByProduct: (product_id: string) =>
+  publish:              (product_id: string, targets: PublishTarget[]) =>
+    api.post("/social/publish", { product_id, targets }),
+  facebookAccounts:     () =>
+    api.get<FacebookAccount[]>("/social/facebook-accounts"),
+  getPostsByProduct:    (product_id: string) =>
     api.get<SocialPost[]>(`/social/product/${product_id}`),
-  getPost:           (post_id: string) =>
+  getPost:              (post_id: string) =>
     api.get<SocialPost>(`/social/post/${post_id}`),
 };
 
@@ -116,6 +128,7 @@ export interface ShopSettingsData {
   shop_name: string;
   tagline: string;
   promo_banner: string;
+  website_url: string;
   phone: string;
   whatsapp: string;
   email: string;

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { productsApi, videosApi } from "@/lib/api";
 import { VideoGenerateModal } from "@/components/admin/VideoGenerateModal";
 import {
-  Film, Play, Clock, CheckCircle, XCircle, Loader2, Plus, Trash2, AlertTriangle, X,
+  Film, Play, Clock, CheckCircle, XCircle, Loader2, Plus, Trash2, AlertTriangle, X, Download,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -91,9 +91,86 @@ function DeleteConfirmModal({
   );
 }
 
+// ── Modal sélection produit ───────────────────────────────────────────────────
+function ProductPickerModal({
+  products,
+  onSelect,
+  onClose,
+}: {
+  products: Product[];
+  onSelect: (p: Product) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-3xl z-10">
+          <div>
+            <h2 className="font-serif text-lg font-bold text-gray-900">Choisir un produit</h2>
+            <p className="text-gray-400 text-xs mt-0.5">Sélectionnez le produit pour lequel générer une vidéo</p>
+          </div>
+          <button onClick={onClose}
+            className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Grille produits */}
+        <div className="p-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {products.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => onSelect(p)}
+              className="flex items-center gap-3 p-3 rounded-xl border border-gray-200
+                         hover:border-brand-400 hover:bg-brand-50 transition-all text-left group"
+            >
+              <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                {p.images[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.images[0]} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full brand-gradient opacity-30" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-gray-800 truncate group-hover:text-brand-700">
+                  {p.name}
+                </p>
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  {p.video_url ? "✓ Vidéo existante" : "Pas de vidéo"}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Téléchargement direct (blob) ──────────────────────────────────────────────
+async function downloadVideo(url: string, filename: string) {
+  try {
+    const res  = await fetch(url);
+    const blob = await res.blob();
+    const obj  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = obj;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(obj);
+  } catch {
+    window.open(url, "_blank");   // fallback si fetch bloqué (CORS)
+  }
+}
+
 // ── Page principale ───────────────────────────────────────────────────────────
 export default function VideosPage() {
   const qc = useQueryClient();
+  const [showPicker,     setShowPicker]     = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [jobToDelete, setJobToDelete]         = useState<VideoJob | null>(null);
 
@@ -150,7 +227,7 @@ export default function VideosPage() {
         <button
           onClick={() => {
             if (products.length === 0) { toast.error("Créez d'abord un produit"); return; }
-            setSelectedProduct(products[0]);
+            setShowPicker(true);
           }}
           className="inline-flex items-center gap-2 brand-gradient text-white px-4 py-2.5
                      rounded-xl text-sm font-semibold shadow-md hover:opacity-90 transition-opacity"
@@ -159,8 +236,8 @@ export default function VideosPage() {
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {/* Stats — masquées sur mobile */}
+      <div className="hidden sm:grid sm:grid-cols-4 gap-4">
         {[
           { label: "Total",      value: stats.total,      color: "text-gray-700"    },
           { label: "Terminées",  value: stats.completed,  color: "text-emerald-600" },
@@ -174,50 +251,10 @@ export default function VideosPage() {
         ))}
       </div>
 
-      {/* Sélecteur produit */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="font-semibold text-gray-800 text-sm mb-3 flex items-center gap-2">
-          <Film size={16} className="text-brand-600" />
-          Choisir un produit pour générer une vidéo
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {products.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedProduct(p)}
-              className="flex items-center gap-2.5 p-3 rounded-xl border border-gray-200
-                         hover:border-brand-400 hover:bg-brand-50 transition-all text-left group"
-            >
-              <div className="w-10 h-10 rounded-lg overflow-hidden bg-cream-100 flex-shrink-0">
-                {p.images[0] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.images[0]} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full brand-gradient opacity-30" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-gray-800 truncate group-hover:text-brand-700">
-                  {p.name}
-                </p>
-                <p className="text-[10px] text-gray-400">
-                  {p.video_url ? "✓ Vidéo existante" : "Pas de vidéo"}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Historique */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-gray-50">
           <h2 className="font-semibold text-gray-800 text-sm">Historique des générations</h2>
-          {stats.failed > 0 && (
-            <span className="text-xs text-red-400 font-medium">
-              {stats.failed} échec{stats.failed > 1 ? "s" : ""} masqué{stats.failed > 1 ? "s" : ""}
-            </span>
-          )}
         </div>
 
         {isLoading ? (
@@ -257,35 +294,61 @@ export default function VideosPage() {
                     <p className="text-sm font-semibold text-gray-800 truncate">
                       {product?.name ?? job.product_id}
                     </p>
-                    <p className="text-xs text-gray-400 truncate">
-                      {job.prompt || "Script automatique"}
-                    </p>
+
+                    {/* Barre de progression pour les jobs en cours */}
+                    {(job.status === "processing" || job.status === "pending") ? (
+                      <div className="mt-1.5 space-y-1">
+                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-brand-400 to-brand-600 rounded-full animate-progress-bar" />
+                        </div>
+                        <p className="text-[10px] text-blue-500 font-medium">
+                          {job.status === "pending" ? "En attente de démarrage…" : "Génération en cours…"}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(job.created_at).toLocaleDateString("fr-FR", {
+                          day: "2-digit", month: "short", year: "numeric",
+                          hour: "2-digit", minute: "2-digit",
+                        })}
+                      </p>
+                    )}
                   </div>
 
-                  {/* Badge statut */}
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1
-                                rounded-full flex-shrink-0 ${cfg.color}`}
-                  >
-                    <StatusIcon
-                      size={11}
-                      className={job.status === "processing" ? "animate-spin" : ""}
-                    />
-                    {cfg.label}
-                  </span>
-
-                  {/* Voir la vidéo */}
-                  {job.status === "completed" && job.video_url && (
-                    <a
-                      href={job.video_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors
-                                 flex-shrink-0"
-                      title="Voir la vidéo"
+                  {/* Badge statut — masqué si en cours (remplacé par la barre) */}
+                  {job.status !== "processing" && job.status !== "pending" && (
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1
+                                  rounded-full flex-shrink-0 ${cfg.color}`}
                     >
-                      <Play size={15} />
-                    </a>
+                      <StatusIcon size={11} />
+                      {cfg.label}
+                    </span>
+                  )}
+
+                  {/* Voir + Télécharger la vidéo */}
+                  {job.status === "completed" && job.video_url && (
+                    <>
+                      <a
+                        href={job.video_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors flex-shrink-0"
+                        title="Voir la vidéo"
+                      >
+                        <Play size={15} />
+                      </a>
+                      <button
+                        onClick={() => downloadVideo(
+                          job.video_url!,
+                          `${productMap[job.product_id]?.name ?? "video"}.mp4`
+                        )}
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex-shrink-0"
+                        title="Télécharger la vidéo"
+                      >
+                        <Download size={15} />
+                      </button>
+                    </>
                   )}
 
                   {/* Supprimer — uniquement pour les vidéos terminées */}
@@ -305,6 +368,15 @@ export default function VideosPage() {
           </div>
         )}
       </div>
+
+      {/* Modal sélection produit */}
+      {showPicker && (
+        <ProductPickerModal
+          products={products}
+          onSelect={(p) => { setShowPicker(false); setSelectedProduct(p); }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
 
       {/* Modal génération */}
       {selectedProduct && (

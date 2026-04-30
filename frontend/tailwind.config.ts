@@ -10,39 +10,40 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Palette inspirée du logo : vert forêt → vert vif
         brand: {
-          50:  "#ecfdf5",
-          100: "#d1fae5",
-          200: "#a7f3d0",
-          300: "#6ee7b7",
-          400: "#34d399",
-          500: "#10b981",
-          600: "#059669",
-          700: "#047857",
-          800: "#065f46",
-          900: "#064e3b",
-          950: "#022c22",
+          50:  "#f2f9f3",
+          100: "#d8f0db",
+          200: "#b0deb6",
+          300: "#78c480",
+          400: "#4cad55",   // vert vif logo (feuilles)
+          500: "#2e9438",
+          600: "#1e7828",   // vert action principal
+          700: "#185f20",
+          800: "#114819",
+          900: "#0a3212",
+          950: "#041a08",   // vert presque noir (fond logo)
         },
-        gold: {
-          50:  "#fffdf0",
-          100: "#fff9d6",
-          200: "#fff0a8",
-          300: "#ffe070",
-          400: "#ffc832",
-          500: "#f0aa0a",
-          600: "#d48600",
-          700: "#a86200",
-          800: "#8a4e04",
-          900: "#734108",
-          950: "#431f00",
+        // Accent : vert lime clair (reflet métallique du S)
+        lime: {
+          50:  "#f7fee7",
+          100: "#ecfccb",
+          200: "#d9f99d",
+          300: "#bef264",
+          400: "#a3e635",
+          500: "#84cc16",
+          600: "#65a30d",
+          700: "#4d7c0f",
+          800: "#3f6212",
+          900: "#365314",
         },
         cream: {
-          50:  "#fefcf8",
-          100: "#fdf8f0",
-          200: "#f9eddb",
-          300: "#f3dbb8",
-          400: "#e9c285",
-          500: "#dda85a",
+          50:  "#fafdf7",
+          100: "#f2f9f0",
+          200: "#e3f2e1",
+          300: "#c8e6c5",
+          400: "#a5d6a0",
+          500: "#81c784",
         },
       },
       zIndex: {

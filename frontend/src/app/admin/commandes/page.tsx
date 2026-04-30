@@ -282,9 +282,9 @@ export default function CommandesPage() {
         <p className="text-gray-400 text-sm mt-0.5">Gérez et suivez toutes les commandes client</p>
       </div>
 
-      {/* Stats */}
+      {/* Stats — masquées sur mobile */}
       {stats && (
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        <div className="hidden sm:grid sm:grid-cols-6 gap-3">
           {[
             { label: "Total",      value: stats.total,     color: "text-gray-700"    },
             { label: "Attente",    value: stats.pending,   color: "text-amber-600"   },
@@ -316,6 +316,7 @@ export default function CommandesPage() {
 
       {/* Filters + search */}
       <div className="flex flex-col sm:flex-row gap-3">
+
         {/* Search */}
         <div className="relative flex-1 max-w-xs">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -328,8 +329,28 @@ export default function CommandesPage() {
           />
         </div>
 
-        {/* Status filters */}
-        <div className="flex gap-2 flex-wrap">
+        {/* Filtre mobile → select compact */}
+        <div className="sm:hidden">
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as typeof filter)}
+            className="w-full py-2.5 px-4 text-sm font-semibold border border-gray-200 rounded-xl
+                       bg-white focus:outline-none focus:ring-2 focus:ring-brand-300 transition-all"
+          >
+            <option value="all">Toutes les commandes</option>
+            {STATUS_FLOW.map((s) => {
+              const count = stats ? (stats as Record<string, number>)[s] : 0;
+              return (
+                <option key={s} value={s}>
+                  {STATUS_CONFIG[s].label}{count > 0 ? ` (${count})` : ""}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
+        {/* Filtre desktop → boutons tabs */}
+        <div className="hidden sm:flex gap-2 flex-wrap">
           {(["all", ...STATUS_FLOW] as const).map((s) => (
             <button
               key={s}

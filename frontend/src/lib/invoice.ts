@@ -104,7 +104,7 @@ export function printInvoice(order: Order): void {
   ${order.notes ? `<p style="font-size:12px;color:#888;margin-top:8px;">Notes : ${order.notes}</p>` : ""}
 
   <div class="footer">
-    Merci pour votre confiance — Sakina Shop &bull; Élégance Africaine &amp; Mode Luxueuse
+    Merci pour votre confiance — Sakina Shop
   </div>
 
   <script>window.onload = () => { window.print(); }<\/script>

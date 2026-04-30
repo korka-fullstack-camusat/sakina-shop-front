@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { useQuery } from "@tanstack/react-query";
@@ -7,8 +8,7 @@ import { ordersApi } from "@/lib/api";
 import {
   LayoutDashboard, Package, Film, Globe2,
   ShoppingCart, Users, Settings, LogOut,
-  ShoppingBag, X, Sparkles, ChevronRight, Bell,
-  AlertTriangle,
+  X, Sparkles, ChevronRight, Bell, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -17,9 +17,9 @@ const SECTIONS = [
   {
     label: "Principal",
     links: [
-      { href: "/admin/dashboard",    label: "Dashboard",       icon: LayoutDashboard, badgeKey: null              },
-      { href: "/admin/products",     label: "Produits",        icon: Package,         badgeKey: null              },
-      { href: "/admin/commandes",    label: "Commandes",       icon: ShoppingCart,    badgeKey: "orders_pending"  },
+      { href: "/admin/dashboard",    label: "Dashboard",       icon: LayoutDashboard, badgeKey: null             },
+      { href: "/admin/products",     label: "Produits",        icon: Package,         badgeKey: null             },
+      { href: "/admin/commandes",    label: "Commandes",       icon: ShoppingCart,    badgeKey: "orders_pending" },
     ],
   },
   {
@@ -38,64 +38,37 @@ const SECTIONS = [
   },
 ];
 
-// ── Modal de confirmation de déconnexion ──────────────────────────────────────
-function LogoutConfirmModal({
-  onConfirm,
-  onCancel,
-}: {
-  onConfirm: () => void;
-  onCancel:  () => void;
-}) {
+// ── Modal confirmation déconnexion ────────────────────────────────────────────
+function LogoutConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onCancel}
-      />
-
-      {/* Card */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm p-7 animate-slide-up z-10">
-        {/* Icône */}
         <div className="flex items-center justify-center mb-5">
           <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center">
             <LogOut size={24} className="text-red-500" />
           </div>
         </div>
-
-        {/* Texte */}
-        <h2 className="font-serif text-xl font-bold text-gray-900 text-center mb-2">
-          Se déconnecter ?
-        </h2>
+        <h2 className="font-serif text-xl font-bold text-gray-900 text-center mb-2">Se déconnecter ?</h2>
         <p className="text-gray-400 text-sm text-center leading-relaxed mb-7">
           Vous serez redirigé vers la boutique.
           Pour revenir ici, utilisez le bouton{" "}
           <span className="font-semibold text-gray-600">Se connecter</span>.
         </p>
-
-        {/* Warning */}
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-100
-                        rounded-2xl px-4 py-3 mb-6">
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 mb-6">
           <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-amber-700 leading-relaxed">
-            Toutes les données non sauvegardées seront perdues.
-          </p>
+          <p className="text-xs text-amber-700 leading-relaxed">Toutes les données non sauvegardées seront perdues.</p>
         </div>
-
-        {/* Buttons */}
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={onCancel}
-            className="py-3 text-sm font-semibold text-gray-600 border border-gray-200
-                       rounded-2xl hover:bg-gray-50 transition-colors"
+            className="py-3 text-sm font-semibold text-gray-600 border border-gray-200 rounded-2xl hover:bg-gray-50 transition-colors"
           >
             Annuler
           </button>
           <button
             onClick={onConfirm}
-            className="py-3 text-sm font-semibold text-white bg-red-500
-                       rounded-2xl hover:bg-red-600 transition-colors shadow-md
-                       shadow-red-900/20 flex items-center justify-center gap-2"
+            className="py-3 text-sm font-semibold text-white bg-red-500 rounded-2xl hover:bg-red-600 transition-colors shadow-md shadow-red-900/20 flex items-center justify-center gap-2"
           >
             <LogOut size={15} /> Déconnecter
           </button>
@@ -106,10 +79,7 @@ function LogoutConfirmModal({
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-interface Props {
-  isOpen:  boolean;
-  onClose: () => void;
-}
+interface Props { isOpen: boolean; onClose: () => void }
 
 export function AdminSidebar({ isOpen, onClose }: Props) {
   const pathname = usePathname();
@@ -123,9 +93,7 @@ export function AdminSidebar({ isOpen, onClose }: Props) {
     refetchInterval: 20_000,
   });
 
-  const badges: Record<string, number> = {
-    orders_pending: orderStats?.pending ?? 0,
-  };
+  const badges: Record<string, number> = { orders_pending: orderStats?.pending ?? 0 };
 
   const handleLogoutConfirmed = () => {
     setShowConfirm(false);
@@ -136,18 +104,33 @@ export function AdminSidebar({ isOpen, onClose }: Props) {
 
   const NavContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo */}
+
+      {/* ── Logo ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl brand-gradient flex items-center justify-center shadow-md">
-            <ShoppingBag className="text-white" size={16} />
+        <Link href="/" className="flex items-center gap-3 group">
+          {/* Logo image sur fond blanc */}
+          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center
+                          shadow-md flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
+            <Image
+              src="/logo.png"
+              alt="Sakina Shop"
+              width={36}
+              height={36}
+              className="w-8 h-8 object-contain"
+            />
           </div>
+          {/* Nom */}
           <div className="leading-none">
-            <span className="font-serif font-bold text-white text-base">Sakina</span>
-            <span className="font-serif font-bold text-gold-400 text-base"> Shop</span>
-            <p className="text-white/30 text-[9px] font-semibold uppercase tracking-widest mt-0.5">Admin Panel</p>
+            <div>
+              <span className="font-serif font-bold text-white text-base">Sakina</span>
+              <span className="font-serif font-bold text-lime-400 text-base"> Shop</span>
+            </div>
+            <p className="text-white/30 text-[9px] font-semibold uppercase tracking-widest mt-0.5">
+              Admin Panel
+            </p>
           </div>
-        </div>
+        </Link>
+
         <button
           onClick={onClose}
           className="lg:hidden p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
@@ -156,21 +139,26 @@ export function AdminSidebar({ isOpen, onClose }: Props) {
         </button>
       </div>
 
-      {/* Nav */}
+      {/* ── Navigation ───────────────────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
         {SECTIONS.map(({ label, links }) => (
           <div key={label}>
-            <p className="text-white/25 text-[10px] font-bold uppercase tracking-widest px-3 mb-2">{label}</p>
+            <p className="text-white/25 text-[10px] font-bold uppercase tracking-widest px-3 mb-2">
+              {label}
+            </p>
             <div className="space-y-0.5">
               {links.map(({ href, label: lbl, icon: Icon, badgeKey }) => {
                 const active = pathname === href || pathname.startsWith(href + "/");
                 const count  = badgeKey ? (badges[badgeKey] ?? 0) : 0;
                 return (
-                  <Link key={href} href={href} onClick={onClose}
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={onClose}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                       active
-                        ? "gold-gradient text-white shadow-md"
+                        ? "lime-gradient text-white shadow-md"
                         : "text-white/55 hover:text-white hover:bg-white/10"
                     )}
                   >
@@ -193,7 +181,7 @@ export function AdminSidebar({ isOpen, onClose }: Props) {
         ))}
       </nav>
 
-      {/* Alerte ou tip */}
+      {/* ── Alerte ou astuce ─────────────────────────────────────────── */}
       {(orderStats?.pending ?? 0) > 0 ? (
         <Link href="/admin/commandes" onClick={onClose}
           className="mx-3 mb-3 p-3.5 rounded-2xl bg-amber-500/20 border border-amber-400/30
@@ -209,8 +197,8 @@ export function AdminSidebar({ isOpen, onClose }: Props) {
       ) : (
         <div className="mx-3 mb-3 p-3.5 rounded-2xl bg-white/5 border border-white/10">
           <div className="flex items-center gap-2 mb-1">
-            <Sparkles size={12} className="text-gold-400" />
-            <span className="text-[11px] text-gold-400 font-semibold">Astuce</span>
+            <Sparkles size={12} className="text-lime-400" />
+            <span className="text-[11px] text-lime-400 font-semibold">Astuce</span>
           </div>
           <p className="text-white/35 text-[10px] leading-relaxed">
             Générez une vidéo IA puis publiez sur TikTok &amp; Snapchat en 1 clic.
@@ -218,7 +206,7 @@ export function AdminSidebar({ isOpen, onClose }: Props) {
         </div>
       )}
 
-      {/* Logout */}
+      {/* ── Déconnexion ──────────────────────────────────────────────── */}
       <div className="px-3 pb-4 border-t border-white/10 pt-3">
         <button
           onClick={() => setShowConfirm(true)}
@@ -258,7 +246,6 @@ export function AdminSidebar({ isOpen, onClose }: Props) {
         <NavContent />
       </aside>
 
-      {/* Logout confirmation modal */}
       {showConfirm && (
         <LogoutConfirmModal
           onConfirm={handleLogoutConfirmed}

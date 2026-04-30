@@ -18,9 +18,12 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Sakina Shop — Élégance & Mode Africaine",
-  description:
-    "Découvrez notre collection exclusive d'abayas, djellabas, cosmétiques et accessoires alliant tradition et modernité.",
+  title: "Sakina Shop",
+  description: "Des milliers de produits de qualité livrés directement chez vous.",
+  icons: {
+    icon:  "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

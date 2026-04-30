@@ -13,8 +13,9 @@ type FormState = Omit<ShopSettingsData, "delivery_fee" | "free_delivery_threshol
 
 const defaultForm: FormState = {
   shop_name:               "Sakina Shop",
-  tagline:                 "Élégance Africaine & Mode Luxueuse",
+  tagline:                 "",
   promo_banner:            "✨ Livraison gratuite dès 50 000 FCFA d'achat",
+  website_url:             "",
   phone:                   "",
   whatsapp:                "",
   email:                   "contact@sakina-shop.com",
@@ -129,6 +130,7 @@ export default function ParametresPage() {
           <Field label="Devise" fieldKey="currency" />
         </div>
         <Field label="Slogan" fieldKey="tagline" placeholder="Votre slogan…" />
+        <Field label="URL de la boutique" fieldKey="website_url" placeholder="https://sakina-shop.com" />
         <Field label="Bannière promo (header)" fieldKey="promo_banner" placeholder="✨ Livraison gratuite dès…" />
       </div>
 
