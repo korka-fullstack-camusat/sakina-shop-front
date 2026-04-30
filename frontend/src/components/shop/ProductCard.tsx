@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import { Play, ShoppingCart } from "lucide-react";
 import { useState } from "react";
 import { useCartStore } from "@/store/cart";
@@ -44,12 +43,11 @@ export function ProductCard({ product }: Props) {
         ) : (
           <>
             {product.images[0] ? (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={product.images[0]}
                 alt={product.name}
-                fill
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
             ) : (
               <div className="w-full h-full brand-gradient flex items-center justify-center">

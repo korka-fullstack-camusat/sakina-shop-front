@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
 import {
   X, ChevronLeft, ChevronRight,
   ShoppingCart, CheckCircle, ZoomIn,
@@ -140,13 +139,11 @@ export function ProductModal() {
             <div className="relative aspect-square rounded-2xl overflow-hidden bg-cream-100 group">
               {images.length > 0 ? (
                 <>
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={images[imgIdx]}
                     alt={selectedProduct.name}
-                    fill
-                    sizes="(max-width: 640px) 100vw, 55vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                    priority
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                   />
                   {/* Zoom on hover */}
                   <button
@@ -236,11 +233,10 @@ export function ProductModal() {
                         : "border-transparent hover:border-brand-300 opacity-70 hover:opacity-100"
                     )}
                   >
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={src}
                       alt={`Photo ${i + 1}`}
-                      width={70}
-                      height={70}
                       className="w-full h-full object-cover"
                     />
                   </button>
