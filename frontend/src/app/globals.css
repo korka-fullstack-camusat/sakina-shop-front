@@ -66,6 +66,37 @@
     to   { opacity: 1; transform: scale(1) translateY(0); }
   }
 
+  /* Bottom-sheet slide up (mobile modal) */
+  .animate-slide-up {
+    animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0.6; }
+    to   { transform: translateY(0);    opacity: 1;   }
+  }
+
+  /* Fade-in générique */
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease both;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* Marquee défilement horizontal */
+  .marquee-container { overflow: hidden; }
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee 30s linear infinite;
+  }
+  .marquee-track:hover { animation-play-state: paused; }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
   /* Barre de progression vidéo */
   .animate-progress-bar {
     animation: progressBar 2s ease-in-out infinite;
