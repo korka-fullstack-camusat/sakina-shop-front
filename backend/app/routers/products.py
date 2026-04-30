@@ -1,11 +1,10 @@
-import uuid
+import base64
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from pydantic import BaseModel
 from datetime import datetime, timezone
 from app.middleware.auth import require_admin
 from app.models.product import Product
 from app.models.user import User
-from app.services.storage import upload_file
 from app.core.serializers import doc_to_dict, docs_to_list
 
 router = APIRouter(prefix="/products", tags=["Produits"])
@@ -85,7 +84,7 @@ async def update_product(
     return doc_to_dict(product)
 
 
-@router.post("/{product_id}/images", summary="[Admin] Upload d'images produit")
+@router.post("/{product_id}/images", summary="[Admin] Upload d'images produit (base64)")
 async def upload_product_images(
     product_id: str,
     files: list[UploadFile] = File(...),
@@ -95,14 +94,15 @@ async def upload_product_images(
     if not product:
         raise HTTPException(status_code=404, detail="Produit introuvable")
 
-    urls: list[str] = []
+    data_uris: list[str] = []
     for file in files:
-        content = await file.read()
-        key = f"products/{product_id}/images/{uuid.uuid4()}.jpg"
-        url = await upload_file(content, key, file.content_type or "image/jpeg")
-        urls.append(url)
+        content     = await file.read()
+        mime        = file.content_type or "image/jpeg"
+        b64         = base64.b64encode(content).decode("utf-8")
+        data_uri    = f"data:{mime};base64,{b64}"
+        data_uris.append(data_uri)
 
-    new_images = product.images + urls
+    new_images = product.images + data_uris
     await product.set({Product.images: new_images})
     return {"images": new_images}
 
