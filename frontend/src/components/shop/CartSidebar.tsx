@@ -199,7 +199,7 @@ export function CartSidebar() {
                       setOpen(false);
                       setTimeout(() => setCheckoutOpen(true), 150);
                     }}
-                    className="w-full flex items-center justify-center gap-2 gold-gradient text-white
+                    className="w-full flex items-center justify-center gap-2 brand-gradient text-white
                                font-semibold py-4 rounded-2xl text-sm shadow-md hover:opacity-95
                                hover:scale-[1.01] transition-all"
                   >

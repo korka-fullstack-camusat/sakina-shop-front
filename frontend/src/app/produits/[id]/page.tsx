@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import Image from "next/image";
 import { productsApi } from "@/lib/api";
 import { useCartStore } from "@/store/cart";
 import { ShopHeader } from "@/components/shop/ShopHeader";
@@ -112,13 +111,11 @@ export default function ProductDetailPage() {
             {/* Image principale */}
             <div className="relative aspect-square rounded-3xl overflow-hidden bg-cream-100 shadow-sm">
               {images.length > 0 ? (
-                <Image
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
                   src={images[imgIdx]}
                   alt={product.name}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="object-cover"
-                  priority
+                  className="w-full h-full object-cover"
                 />
               ) : (
                 <div className="w-full h-full brand-gradient flex items-center justify-center">
@@ -197,11 +194,10 @@ export default function ProductDetailPage() {
                         : "border-transparent hover:border-brand-200"
                     )}
                   >
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={src}
                       alt={`Photo ${i + 1}`}
-                      width={80}
-                      height={80}
                       className="w-full h-full object-cover"
                     />
                   </button>
@@ -272,7 +268,7 @@ export default function ProductDetailPage() {
                   added
                     ? "bg-emerald-500 text-white scale-[0.99] shadow-emerald-900/20"
                     : inStock
-                      ? "gold-gradient text-white hover:opacity-95 hover:scale-[1.01] shadow-gold-900/20"
+                      ? "brand-gradient text-white hover:opacity-95 hover:scale-[1.01] shadow-lg"
                       : "bg-gray-100 text-gray-400 cursor-not-allowed shadow-none"
                 )}
                 style={{ paddingTop: "1rem", paddingBottom: "1rem" }}

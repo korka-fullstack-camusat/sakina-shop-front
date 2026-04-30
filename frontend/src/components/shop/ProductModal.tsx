@@ -309,7 +309,7 @@ export function ProductModal() {
                   added
                     ? "bg-emerald-500 text-white scale-[0.99]"
                     : inStock
-                      ? "gold-gradient text-white hover:opacity-95 hover:scale-[1.01]"
+                      ? "brand-gradient text-white hover:opacity-95 hover:scale-[1.01]"
                       : "bg-gray-100 text-gray-400 cursor-not-allowed shadow-none"
                 )}
               >
