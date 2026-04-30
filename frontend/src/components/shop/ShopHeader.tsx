@@ -30,7 +30,7 @@ export function ShopHeader() {
   });
 
   const promoBanner = settings?.promo_banner ??
-    "🛍️ Livraison rapide partout en Afrique · Qualité garantie · Paiement à la livraison ✨";
+    "🛍️ Tous vos produits au même endroit · Livraison rapide partout · Paiement à la réception ✅";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
