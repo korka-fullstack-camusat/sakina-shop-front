@@ -190,7 +190,7 @@ export default function VideosPage() {
       );
     },
     enabled: products.length > 0,
-    refetchInterval: 10_000,
+    refetchInterval: 15_000,   // vidéos en cours : 15s (jobs actifs seulement)
   });
 
   const deleteMutation = useMutation({

@@ -21,7 +21,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { data: orderStats } = useQuery({
     queryKey:        ["orders-stats"],
     queryFn:         () => ordersApi.stats().then((r) => r.data),
-    refetchInterval: 20_000,
+    refetchInterval: 60_000,   // badge commandes : 1 min suffit
     enabled:         !!token,
   });
   const pendingCount = orderStats?.pending ?? 0;

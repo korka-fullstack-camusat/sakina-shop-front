@@ -15,7 +15,12 @@ export function resolveUrl(url: string | null | undefined): string {
 
 export const api = axios.create({
   baseURL: API_URL,
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type":   "application/json",
+    "Accept-Encoding": "gzip, deflate, br",  // active la compression côté serveur
+  },
+  timeout: 15_000,   // 15s max — évite les requêtes zombies
+  // Déduplication implicite par React Query — pas besoin de couche supplémentaire
 });
 
 api.interceptors.request.use((config) => {

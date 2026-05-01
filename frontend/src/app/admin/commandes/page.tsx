@@ -257,13 +257,13 @@ export default function CommandesPage() {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["orders"],
     queryFn:  () => ordersApi.list().then((r) => r.data),
-    refetchInterval: 20_000,
+    refetchInterval: 60_000,   // commandes : 1 min suffit
   });
 
   const { data: stats } = useQuery({
     queryKey: ["orders-stats"],
     queryFn:  () => ordersApi.stats().then((r) => r.data),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
   const filtered = orders.filter((o) => {

@@ -90,7 +90,7 @@ export function AdminSidebar({ isOpen, onClose }: Props) {
   const { data: orderStats } = useQuery({
     queryKey:        ["orders-stats"],
     queryFn:         () => ordersApi.stats().then((r) => r.data),
-    refetchInterval: 20_000,
+    refetchInterval: 60_000,   // cache partagé via queryKey "orders-stats"
   });
 
   const badges: Record<string, number> = { orders_pending: orderStats?.pending ?? 0 };

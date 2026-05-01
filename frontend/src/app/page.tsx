@@ -36,7 +36,7 @@ export default function ShopPage() {
   const { data: allProducts = [], isLoading } = useQuery({
     queryKey:        ["products"],
     queryFn:         () => productsApi.listPublished().then((r) => r.data),
-    refetchInterval: 30_000,
+    // pas de refetchInterval : staleTime=5min dans providers.tsx
   });
 
   const preview = allProducts.slice(0, 8);

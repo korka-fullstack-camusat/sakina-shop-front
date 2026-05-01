@@ -17,7 +17,7 @@ export default function DashboardPage() {
   const { data: orderStats } = useQuery({
     queryKey:        ["orders-stats"],
     queryFn:         () => ordersApi.stats().then((r) => r.data),
-    refetchInterval: 20_000,   // rafraîchit toutes les 20 s
+    refetchInterval: 60_000,   // 1 min suffit pour les stats admin
   });
 
   const pending = orderStats?.pending ?? 0;

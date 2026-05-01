@@ -17,7 +17,7 @@ export default function ProduitsPage() {
   const { data: allProducts = [], isLoading } = useQuery({
     queryKey:        ["products"],
     queryFn:         () => productsApi.listPublished().then((r) => r.data),
-    refetchInterval: 30_000,
+    // staleTime=5min global dans providers.tsx
   });
 
   /* Catégories dynamiques */
