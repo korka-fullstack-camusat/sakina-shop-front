@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone
@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from app.middleware.auth import require_admin
 from app.models.settings import ShopSettings
 from app.models.user import User
+from app.core.cache import cache_get, cache_set, cache_bust
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -43,9 +44,20 @@ class SettingsUpdate(BaseModel):
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @router.get("/")
-async def get_settings():
-    """Paramètres publics — accessible sans authentification."""
-    return await _get_or_create()
+async def get_settings(response: Response):
+    """Paramètres publics — cachés 5 min, accessible sans authentification."""
+    cached = await cache_get("settings:main")
+    if cached is not None:
+        response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
+        response.headers["X-Cache"] = "HIT"
+        return cached
+
+    s = await _get_or_create()
+    result = s.model_dump(mode="json")
+    await cache_set("settings:main", result, ttl=300)
+    response.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
+    response.headers["X-Cache"] = "MISS"
+    return result
 
 
 @router.put("/")
@@ -59,4 +71,6 @@ async def update_settings(
         setattr(s, field, value)
     s.updated_at = datetime.now(timezone.utc)
     await s.save()
+    # Invalide le cache settings
+    await cache_bust("settings:")
     return s
