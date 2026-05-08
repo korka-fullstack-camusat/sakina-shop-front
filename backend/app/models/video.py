@@ -8,6 +8,8 @@ class VideoJob(Document):
     product_id: str
     prompt: str
     status: Literal["pending", "processing", "completed", "failed"] = "pending"
+    progress: int = 0          # 0-100
+    step: str = ""             # description de l'étape en cours
     runway_task_id: str | None = None
     video_url: str | None = None
     error: str | None = None

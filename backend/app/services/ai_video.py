@@ -191,7 +191,12 @@ def _local_path_from_url(url: str) -> Path | None:
 
 
 async def _fetch_image_bytes(url: str) -> tuple[bytes, str]:
-    """Télécharge une image (locale ou HTTPS) et retourne (bytes, mime_type)."""
+    """Télécharge une image (locale, data URI ou HTTPS) et retourne (bytes, mime_type)."""
+    # Ancienne image stockée en base64 directement dans MongoDB
+    if url.startswith("data:"):
+        header, encoded = url.split(",", 1)
+        mime = header.split(":")[1].split(";")[0]
+        return base64.b64decode(encoded), mime
     local = _local_path_from_url(url)
     if local and local.exists():
         mime, _ = mimetypes.guess_type(str(local))
@@ -219,9 +224,13 @@ def _to_data_uri(image_url: str) -> str:
 class AdVideoService:
     """Génère une vidéo publicitaire à partir des images et infos d'un produit."""
 
+    async def _progress(self, job: VideoJob, pct: int, step: str) -> None:
+        await job.set({VideoJob.progress: pct, VideoJob.step: step})
+
     async def generate_video_for_product(self, job: VideoJob, product: Product) -> None:
         try:
-            await job.set({VideoJob.status: "processing"})
+            await job.set({VideoJob.status: "processing", VideoJob.progress: 0,
+                           VideoJob.step: "Démarrage…"})
 
             if not product.images:
                 raise ValueError("Le produit doit avoir au moins une image.")
@@ -229,10 +238,10 @@ class AdVideoService:
             with tempfile.TemporaryDirectory() as _tmpdir:
                 tmpdir = Path(_tmpdir)
 
-                # ── 1. Télécharger toutes les images ─────────────────────
+                # ── 1. Télécharger les images ─────────────────────────────
+                await self._progress(job, 10, "Chargement des images du produit…")
                 logger.info("Téléchargement des images",
-                            product_id=str(product.id),
-                            count=len(product.images))
+                            product_id=str(product.id), count=len(product.images))
 
                 img_paths: list[Path] = []
                 for idx, url in enumerate(product.images):
@@ -244,27 +253,29 @@ class AdVideoService:
                     img_paths.append(dest)
 
                 # ── 2. Générer la voix off ────────────────────────────────
+                await self._progress(job, 25, "Génération de la voix off française…")
                 script     = job.prompt if job.prompt else _build_ad_script(product)
                 audio_path = tmpdir / "voiceover.mp3"
-
-                logger.info("Génération voix off", voice=TTS_VOICE,
-                            chars=len(script))
+                logger.info("Génération voix off", voice=TTS_VOICE, chars=len(script))
                 communicate = edge_tts.Communicate(script, voice=TTS_VOICE,
                                                    rate="+5%", volume="+10%")
                 await communicate.save(str(audio_path))
 
-                # ── 3. Créer le slideshow vidéo ───────────────────────────
+                # ── 3. Créer le slideshow ─────────────────────────────────
+                await self._progress(job, 45, "Création du slideshow vidéo…")
                 video_silent = tmpdir / "slideshow_silent.mp4"
                 await self._create_slideshow(img_paths, video_silent)
 
                 # ── 4. Mixer audio + vidéo ────────────────────────────────
+                await self._progress(job, 65, "Mixage audio et vidéo…")
                 mixed_path = tmpdir / "ad_mixed.mp4"
                 await self._mix_audio(video_silent, audio_path, mixed_path)
 
-                # ── 5. Overlay contact (téléphone + site web) ─────────────
-                shop = await ShopSettings.find_one(ShopSettings.key == "main")
-                phone   = (shop.phone   or "").strip() if shop else ""
-                website = (shop.website_url or "").strip() if shop else ""
+                # ── 5. Overlay contact ────────────────────────────────────
+                await self._progress(job, 80, "Ajout des informations de contact…")
+                shop    = await ShopSettings.find_one(ShopSettings.key == "main")
+                phone   = (shop.phone        or "").strip() if shop else ""
+                website = (shop.website_url  or "").strip() if shop else ""
 
                 final_path = tmpdir / "ad_final.mp4"
                 if phone or website:
@@ -274,6 +285,7 @@ class AdVideoService:
                     shutil.copy(mixed_path, final_path)
 
                 # ── 6. Upload ─────────────────────────────────────────────
+                await self._progress(job, 92, "Upload de la vidéo finale…")
                 s3_key    = f"videos/{product.id}/{job.id}.mp4"
                 final_url = await upload_file(
                     final_path.read_bytes(), s3_key, "video/mp4"
@@ -282,19 +294,20 @@ class AdVideoService:
             # ── 7. Mise à jour BDD ────────────────────────────────────────
             await job.set({
                 VideoJob.status:       "completed",
+                VideoJob.progress:     100,
+                VideoJob.step:         "Vidéo prête !",
                 VideoJob.video_url:    final_url,
                 VideoJob.completed_at: datetime.now(timezone.utc),
             })
             await product.set({Product.video_url: final_url})
-
             logger.info("Vidéo publicitaire générée",
                         product_id=str(product.id), url=final_url)
 
         except Exception as exc:
             msg = str(exc)
-            logger.error("Erreur génération vidéo pub",
-                         error=msg, job_id=str(job.id))
-            await job.set({VideoJob.status: "failed", VideoJob.error: msg})
+            logger.error("Erreur génération vidéo pub", error=msg, job_id=str(job.id))
+            await job.set({VideoJob.status: "failed", VideoJob.progress: 0,
+                           VideoJob.step: "", VideoJob.error: msg})
 
     # ── FFmpeg helpers ────────────────────────────────────────────────────────
 
