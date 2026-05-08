@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { productsApi, videosApi } from "@/lib/api";
+import { productsApi, videosApi, resolveUrl } from "@/lib/api";
 import { VideoGenerateModal } from "@/components/admin/VideoGenerateModal";
 import {
   Film, Play, Clock, CheckCircle, XCircle, Loader2, Plus, Trash2, AlertTriangle, X, Download,
@@ -128,7 +128,7 @@ function ProductPickerModal({
               <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
                 {p.images[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.images[0]} alt="" className="w-full h-full object-cover" />
+                  <img src={resolveUrl(p.images[0])} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full brand-gradient opacity-30" />
                 )}
@@ -190,7 +190,14 @@ export default function VideosPage() {
       );
     },
     enabled: products.length > 0,
-    refetchInterval: 15_000,   // vidéos en cours : 15s (jobs actifs seulement)
+    // Polling rapide (3s) si un job est en cours, sinon 15s
+    refetchInterval: (query) => {
+      const data = query.state.data as VideoJob[] | undefined;
+      const hasActive = data?.some(
+        (j) => j.status === "pending" || j.status === "processing"
+      );
+      return hasActive ? 3_000 : 15_000;
+    },
   });
 
   const deleteMutation = useMutation({
@@ -283,7 +290,7 @@ export default function VideosPage() {
                   <div className="w-10 h-10 rounded-xl overflow-hidden bg-cream-100 flex-shrink-0">
                     {product?.images[0] ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={product.images[0]} alt="" className="w-full h-full object-cover" />
+                      <img src={resolveUrl(product.images[0])} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full brand-gradient opacity-20" />
                     )}
@@ -295,14 +302,22 @@ export default function VideosPage() {
                       {product?.name ?? job.product_id}
                     </p>
 
-                    {/* Barre de progression pour les jobs en cours */}
+                    {/* Barre de progression réelle */}
                     {(job.status === "processing" || job.status === "pending") ? (
                       <div className="mt-1.5 space-y-1">
-                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-brand-400 to-brand-600 rounded-full animate-progress-bar" />
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-brand-400 to-brand-600 rounded-full transition-all duration-700 ease-out"
+                              style={{ width: `${job.progress || 0}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-bold text-brand-600 w-7 text-right flex-shrink-0">
+                            {job.progress || 0}%
+                          </span>
                         </div>
-                        <p className="text-[10px] text-blue-500 font-medium">
-                          {job.status === "pending" ? "En attente de démarrage…" : "Génération en cours…"}
+                        <p className="text-[10px] text-blue-500 font-medium truncate">
+                          {job.step || (job.status === "pending" ? "En attente de démarrage…" : "Génération en cours…")}
                         </p>
                       </div>
                     ) : (

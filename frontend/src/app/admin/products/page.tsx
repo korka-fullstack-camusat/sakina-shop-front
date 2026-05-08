@@ -1,12 +1,12 @@
 "use client";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { productsApi } from "@/lib/api";
+import { productsApi, adminApi } from "@/lib/api";
 import toast from "react-hot-toast";
 import {
   Plus, Film, Globe, Eye, EyeOff, Trash2, Search,
   AlertTriangle, X, Edit2, Package, CheckCircle,
-  Clock, ChevronRight, Play,
+  Clock, ChevronRight, Play, RefreshCw,
 } from "lucide-react";
 import { ProductFormModal }   from "@/components/admin/ProductFormModal";
 import { VideoGenerateModal } from "@/components/admin/VideoGenerateModal";
@@ -335,6 +335,25 @@ export default function ProductsPage() {
     onError: () => toast.error("Erreur lors de la suppression"),
   });
 
+  const migrateMutation = useMutation({
+    mutationFn: () => adminApi.migrateImages(),
+    onSuccess:  (r) => {
+      const { migrated, errors } = r.data;
+      if (migrated > 0) {
+        toast.success(`${migrated} image(s) migrée(s) vers Cloudinary !`);
+        qc.invalidateQueries({ queryKey: ["admin-products"] });
+      } else {
+        toast.success("Toutes les images sont déjà sur Cloudinary.");
+      }
+      if (errors.length > 0) toast.error(`${errors.length} erreur(s) — voir console`);
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail || err?.message || "Erreur inconnue";
+      toast.error(`Migration échouée : ${msg}`, { duration: 6000 });
+    },
+  });
+
   return (
     <div className="space-y-6">
 
@@ -344,13 +363,26 @@ export default function ProductsPage() {
           <h1 className="font-serif text-2xl font-bold text-gray-900">Gestion des Produits</h1>
           <p className="text-gray-400 text-sm mt-1">{products.length} produit(s) au total</p>
         </div>
-        <button
-          onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-2 brand-gradient text-white px-5 py-2.5
-                     rounded-xl text-sm font-semibold shadow-md hover:opacity-90 transition-opacity"
-        >
-          <Plus size={16} /> Nouveau produit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => migrateMutation.mutate()}
+            disabled={migrateMutation.isPending}
+            title="Convertir les anciennes images vers Cloudinary (à faire une seule fois)"
+            className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700
+                       px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-amber-100
+                       transition-colors disabled:opacity-60"
+          >
+            <RefreshCw size={15} className={migrateMutation.isPending ? "animate-spin" : ""} />
+            {migrateMutation.isPending ? "Migration…" : "Migrer images"}
+          </button>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="inline-flex items-center gap-2 brand-gradient text-white px-5 py-2.5
+                       rounded-xl text-sm font-semibold shadow-md hover:opacity-90 transition-opacity"
+          >
+            <Plus size={16} /> Nouveau produit
+          </button>
+        </div>
       </div>
 
       {/* ── Recherche ──────────────────────────────────────────────── */}

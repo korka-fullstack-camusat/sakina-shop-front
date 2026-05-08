@@ -83,7 +83,7 @@ export function VideoGenerateModal({ product, onClose }: Props) {
     onError: () => toast.error("Erreur lors du lancement"),
   });
 
-  // Polling statut
+  // Polling statut — 2s quand actif pour montrer la progression en temps réel
   useEffect(() => {
     if (!jobId) return;
     const interval = setInterval(async () => {
@@ -93,10 +93,10 @@ export function VideoGenerateModal({ product, onClose }: Props) {
         if (res.status === "completed" || res.status === "failed") {
           clearInterval(interval);
           if (res.status === "completed") toast.success("Vidéo générée avec succès !");
-          if (res.status === "failed") toast.error("Génération échouée");
+          if (res.status === "failed")    toast.error("Génération échouée");
         }
       } catch {}
-    }, 5000);
+    }, 2000);
     return () => clearInterval(interval);
   }, [jobId]);
 
@@ -201,9 +201,9 @@ export function VideoGenerateModal({ product, onClose }: Props) {
             )}
           </div>
 
-          {/* Statut job */}
+          {/* Statut job + barre de progression */}
           {jobStatus && (
-            <div className={`rounded-xl p-4 ${
+            <div className={`rounded-xl p-4 space-y-3 ${
               jobStatus.status === "completed" ? "bg-green-50" :
               jobStatus.status === "failed"    ? "bg-red-50"   : "bg-brand-50"
             }`}>
@@ -213,15 +213,36 @@ export function VideoGenerateModal({ product, onClose }: Props) {
                 {(jobStatus.status === "pending" || jobStatus.status === "processing") && (
                   <Loader2 className="text-brand-600 animate-spin" size={18} />
                 )}
-                <span className="text-sm font-medium">
-                  {jobStatus.status === "pending"    && "En attente..."}
-                  {jobStatus.status === "processing" && "Génération en cours…"}
+                <span className="text-sm font-medium flex-1">
+                  {jobStatus.status === "pending"    && "En attente de démarrage…"}
+                  {jobStatus.status === "processing" && (jobStatus.step || "Génération en cours…")}
                   {jobStatus.status === "completed"  && "Vidéo prête !"}
-                  {jobStatus.status === "failed"     && `Erreur : ${jobStatus.error}`}
+                  {jobStatus.status === "failed"     && "Génération échouée"}
                 </span>
+                {(jobStatus.status === "pending" || jobStatus.status === "processing") && (
+                  <span className="text-xs font-bold text-brand-700">
+                    {jobStatus.progress ?? 0}%
+                  </span>
+                )}
               </div>
+
+              {/* Barre de progression */}
+              {(jobStatus.status === "pending" || jobStatus.status === "processing") && (
+                <div className="w-full bg-white/60 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-brand-400 to-brand-600 rounded-full
+                               transition-all duration-700 ease-out"
+                    style={{ width: `${jobStatus.progress ?? 0}%` }}
+                  />
+                </div>
+              )}
+
+              {jobStatus.status === "failed" && jobStatus.error && (
+                <p className="text-xs text-red-500 break-words">{jobStatus.error}</p>
+              )}
+
               {jobStatus.status === "completed" && jobStatus.video_url && (
-                <video src={jobStatus.video_url} controls className="mt-3 rounded-lg w-full" />
+                <video src={jobStatus.video_url} controls className="mt-1 rounded-lg w-full" />
               )}
             </div>
           )}

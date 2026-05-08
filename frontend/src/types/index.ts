@@ -21,6 +21,8 @@ interface VideoJob {
   product_id: string;
   prompt: string;
   status: "pending" | "processing" | "completed" | "failed";
+  progress: number;
+  step: string;
   runway_task_id: string | null;
   video_url: string | null;
   error: string | null;

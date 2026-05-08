@@ -91,6 +91,12 @@ export const productsApi = {
   delete:    (id: string) => api.delete(`/products/${id}`),
 };
 
+// ── Admin ─────────────────────────────────────────────────────────────────────
+export const adminApi = {
+  migrateImages: () =>
+    api.post<{ migrated: number; errors: string[]; message: string }>("/admin/migrate-images"),
+};
+
 // ── Videos ────────────────────────────────────────────────────────────────────
 export const videosApi = {
   generate:      (product_id: string, prompt?: string) =>
