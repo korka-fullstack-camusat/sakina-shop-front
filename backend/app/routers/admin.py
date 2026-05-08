@@ -2,7 +2,7 @@ import base64
 import mimetypes
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from app.core.config import settings
@@ -43,25 +43,39 @@ async def rollback_migration(
     return {"message": f"Rollback jusqu'à {target} effectué"}
 
 
+@router.get("/storage-info", summary="[Admin] Vérifier la config du storage")
+async def storage_info(admin: User = Depends(require_admin)) -> dict:
+    from app.services.storage import USE_CLOUDINARY, USE_S3, USE_LOCAL
+    return {
+        "cloudinary": USE_CLOUDINARY,
+        "s3":         USE_S3,
+        "local":      USE_LOCAL,
+        "cloud_name": settings.CLOUDINARY_CLOUD_NAME[:4] + "…" if settings.CLOUDINARY_CLOUD_NAME else "",
+    }
+
+
 @router.post("/migrate-images", summary="[Admin] Migrer les images base64 vers Cloudinary")
 async def migrate_base64_images(admin: User = Depends(require_admin)) -> dict:
-    """
-    Parcourt tous les produits, détecte les images stockées en base64 (data URI),
-    les uploade sur Cloudinary et remplace l'entrée par l'URL permanente.
-    """
-    products = await Product.find_all().to_list()
+    from app.services.storage import USE_CLOUDINARY, USE_S3, USE_LOCAL
+
+    if USE_LOCAL:
+        raise HTTPException(
+            status_code=400,
+            detail="Aucun service cloud configuré. Ajoutez CLOUDINARY_CLOUD_NAME dans les variables d'environnement Render.",
+        )
+
+    products = await Product.find().to_list()
     total_migrated = 0
-    errors = []
+    errors: list[str] = []
 
     for product in products:
         new_images: list[str] = []
         changed = False
 
-        for idx, img in enumerate(product.images):
+        for idx, img in enumerate(product.images or []):
             if not img.startswith("data:"):
                 new_images.append(img)
                 continue
-
             try:
                 header, encoded = img.split(",", 1)
                 mime = header.split(":")[1].split(";")[0]
@@ -77,8 +91,8 @@ async def migrate_base64_images(admin: User = Depends(require_admin)) -> dict:
             except Exception as exc:
                 logger.error("Échec migration image", product=product.name,
                              idx=idx, error=str(exc))
-                new_images.append(img)  # conserver l'ancienne en cas d'erreur
-                errors.append(f"{product.name}[{idx}]: {exc}")
+                new_images.append(img)
+                errors.append(f"{product.name}[{idx}]: {str(exc)[:120]}")
 
         if changed:
             await product.set({Product.images: new_images})
