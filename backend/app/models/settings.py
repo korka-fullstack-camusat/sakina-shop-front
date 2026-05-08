@@ -11,7 +11,7 @@ class ShopSettings(Document):
     # Identité
     shop_name:    str = "Sakina Shop"
     tagline:      str = ""
-    promo_banner: str = "✨ Livraison gratuite dès 50 000 FCFA d'achat · Qualité premium"
+    promo_banner: str = "🛍️ Tous vos produits au même endroit · Livraison rapide partout · Paiement à la réception ✅"
     website_url:  str = ""   # Ex: https://sakina-shop.com
 
     # Contact
