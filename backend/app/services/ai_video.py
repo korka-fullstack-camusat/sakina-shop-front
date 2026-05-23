@@ -23,7 +23,13 @@ from datetime import datetime, timezone
 import httpx
 import edge_tts
 import imageio_ffmpeg
-from gtts import gTTS
+
+# gTTS : fallback TTS si edge-tts échoue (import optionnel pour éviter crash si absent)
+try:
+    from gtts import gTTS as _gTTS
+    _GTTS_AVAILABLE = True
+except ImportError:
+    _GTTS_AVAILABLE = False
 
 from app.core.config import settings
 from app.core.logging import logger
@@ -193,16 +199,36 @@ def _local_path_from_url(url: str) -> Path | None:
 
 async def _fetch_image_bytes(url: str) -> tuple[bytes, str]:
     """Télécharge une image (locale, data URI ou HTTPS) et retourne (bytes, mime_type)."""
-    # Ancienne image stockée en base64 directement dans MongoDB
+    from urllib.parse import urlparse
+
+    # ── 1. data URI (ancienne image base64 en MongoDB) ───────────────────────
     if url.startswith("data:"):
         header, encoded = url.split(",", 1)
         mime = header.split(":")[1].split(";")[0]
         return base64.b64decode(encoded), mime
+
+    # ── 2. Fichier local présent ──────────────────────────────────────────────
     local = _local_path_from_url(url)
     if local and local.exists():
         mime, _ = mimetypes.guess_type(str(local))
         return local.read_bytes(), mime or "image/jpeg"
-    async with httpx.AsyncClient(timeout=30) as client:
+
+    # ── 3. URL localhost sans fichier local → reconstruire avec APP_BASE_URL ──
+    is_localhost = "localhost" in url or "127.0.0.1" in url
+    if is_localhost:
+        base = settings.APP_BASE_URL.rstrip("/")
+        path = urlparse(url).path          # ex: /uploads/products/abc.jpg
+        corrected = f"{base}{path}"
+        # Si APP_BASE_URL est aussi localhost, on ne peut pas résoudre → erreur claire
+        if "localhost" in corrected or "127.0.0.1" in corrected:
+            raise ValueError(
+                f"Image inaccessible sur ce serveur (URL localhost sans fichier local). "
+                f"Re-uploadez les images du produit pour les enregistrer sur Cloudinary. URL: {url}"
+            )
+        url = corrected   # utiliser l'URL corrigée (ex: https://votre-app.onrender.com/uploads/...)
+
+    # ── 4. Téléchargement HTTPS ───────────────────────────────────────────────
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
         resp = await client.get(url)
         resp.raise_for_status()
         ct = resp.headers.get("content-type", "image/jpeg").split(";")[0]
@@ -254,11 +280,24 @@ class AdVideoService:
                 async def _download_images() -> list[Path]:
                     paths: list[Path] = []
                     for idx, url in enumerate(product.images):
-                        data, mime = await _fetch_image_bytes(url)
-                        ext  = (mimetypes.guess_extension(mime) or ".jpg").replace(".jpe", ".jpg")
-                        dest = tmpdir / f"img_{idx:02d}{ext}"
-                        dest.write_bytes(data)
-                        paths.append(dest)
+                        try:
+                            data, mime = await _fetch_image_bytes(url)
+                            ext  = (mimetypes.guess_extension(mime) or ".jpg").replace(".jpe", ".jpg")
+                            dest = tmpdir / f"img_{idx:02d}{ext}"
+                            dest.write_bytes(data)
+                            paths.append(dest)
+                        except Exception as img_err:
+                            logger.warning(
+                                "Image ignorée (inaccessible)",
+                                url=url, error=str(img_err)
+                            )
+                    if not paths:
+                        raise ValueError(
+                            "Aucune image accessible. Les images du produit ont des URLs localhost "
+                            "qui n'existent plus sur ce serveur. "
+                            "Solution : allez dans /admin/products, supprimez les anciennes images "
+                            "et re-uploadez-les — elles seront enregistrées sur Cloudinary."
+                        )
                     return paths
 
                 async def _generate_tts() -> Path | None:
@@ -280,16 +319,19 @@ class AdVideoService:
                         logger.warning("edge-tts échoué, essai gTTS", error=str(e1))
 
                     # ── Essai 2 : gTTS (HTTP Google — marche sur Render) ──
-                    try:
-                        def _gtts_sync():
-                            tts = gTTS(text=script, lang="fr", slow=False)
-                            tts.save(str(audio))
-                        await asyncio.get_event_loop().run_in_executor(None, _gtts_sync)
-                        logger.info("TTS gTTS OK")
-                        return audio
-                    except Exception as e2:
-                        logger.warning("gTTS échoué aussi, vidéo sans voix off", error=str(e2))
-                        return None   # fallback final : pas d'audio
+                    if _GTTS_AVAILABLE:
+                        try:
+                            def _gtts_sync():
+                                tts = _gTTS(text=script, lang="fr", slow=False)
+                                tts.save(str(audio))
+                            await asyncio.get_event_loop().run_in_executor(None, _gtts_sync)
+                            logger.info("TTS gTTS OK")
+                            return audio
+                        except Exception as e2:
+                            logger.warning("gTTS échoué aussi, vidéo sans voix off", error=str(e2))
+                    else:
+                        logger.warning("gTTS non installé, vidéo sans voix off")
+                    return None   # fallback final : pas d'audio
 
                 img_paths, audio_path = await asyncio.gather(
                     _download_images(), _generate_tts()
