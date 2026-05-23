@@ -238,60 +238,54 @@ class AdVideoService:
             with tempfile.TemporaryDirectory() as _tmpdir:
                 tmpdir = Path(_tmpdir)
 
-                # ── 1. Télécharger les images ─────────────────────────────
-                await self._progress(job, 10, "Chargement des images du produit…")
-                logger.info("Téléchargement des images",
-                            product_id=str(product.id), count=len(product.images))
+                # ── 1. Images + voix off EN PARALLÈLE ────────────────────
+                await self._progress(job, 10, "Chargement des images et voix off…")
 
-                img_paths: list[Path] = []
-                for idx, url in enumerate(product.images):
-                    data, mime = await _fetch_image_bytes(url)
-                    ext  = mimetypes.guess_extension(mime) or ".jpg"
-                    ext  = ext.replace(".jpe", ".jpg")
-                    dest = tmpdir / f"img_{idx:02d}{ext}"
-                    dest.write_bytes(data)
-                    img_paths.append(dest)
+                script = job.prompt if job.prompt else _build_ad_script(product)
 
-                # ── 2. Générer la voix off ────────────────────────────────
-                await self._progress(job, 25, "Génération de la voix off française…")
-                script     = job.prompt if job.prompt else _build_ad_script(product)
-                audio_path = tmpdir / "voiceover.mp3"
-                logger.info("Génération voix off", voice=TTS_VOICE, chars=len(script))
-                communicate = edge_tts.Communicate(script, voice=TTS_VOICE,
-                                                   rate="+5%", volume="+10%")
-                await communicate.save(str(audio_path))
+                async def _download_images() -> list[Path]:
+                    paths: list[Path] = []
+                    for idx, url in enumerate(product.images):
+                        data, mime = await _fetch_image_bytes(url)
+                        ext  = (mimetypes.guess_extension(mime) or ".jpg").replace(".jpe", ".jpg")
+                        dest = tmpdir / f"img_{idx:02d}{ext}"
+                        dest.write_bytes(data)
+                        paths.append(dest)
+                    return paths
 
-                # ── 3. Créer le slideshow ─────────────────────────────────
-                await self._progress(job, 45, "Création du slideshow vidéo…")
-                video_silent = tmpdir / "slideshow_silent.mp4"
-                await self._create_slideshow(img_paths, video_silent)
+                async def _generate_tts() -> Path:
+                    audio = tmpdir / "voiceover.mp3"
+                    communicate = edge_tts.Communicate(script, voice=TTS_VOICE,
+                                                       rate="+5%", volume="+10%")
+                    await communicate.save(str(audio))
+                    return audio
 
-                # ── 4. Mixer audio + vidéo ────────────────────────────────
-                await self._progress(job, 65, "Mixage audio et vidéo…")
-                mixed_path = tmpdir / "ad_mixed.mp4"
-                await self._mix_audio(video_silent, audio_path, mixed_path)
+                img_paths, audio_path = await asyncio.gather(
+                    _download_images(), _generate_tts()
+                )
+                logger.info("Images + TTS prêts", images=len(img_paths))
 
-                # ── 5. Overlay contact ────────────────────────────────────
-                await self._progress(job, 80, "Ajout des informations de contact…")
+                # ── 2. Infos contact (shop settings) ─────────────────────
+                await self._progress(job, 40, "Préparation de la vidéo…")
                 shop    = await ShopSettings.find_one(ShopSettings.key == "main")
-                phone   = (shop.phone        or "").strip() if shop else ""
-                website = (shop.website_url  or "").strip() if shop else ""
+                phone   = (shop.phone       or "").strip() if shop else ""
+                website = (shop.website_url or "").strip() if shop else ""
 
+                # ── 3. UNE seule passe FFmpeg : slideshow + audio + overlay
+                await self._progress(job, 55, "Encodage vidéo en cours…")
                 final_path = tmpdir / "ad_final.mp4"
-                if phone or website:
-                    await self._add_contact_overlay(mixed_path, final_path, phone, website)
-                else:
-                    import shutil
-                    shutil.copy(mixed_path, final_path)
+                await self._build_video_single_pass(
+                    img_paths, audio_path, final_path, phone, website
+                )
 
-                # ── 6. Upload ─────────────────────────────────────────────
-                await self._progress(job, 92, "Upload de la vidéo finale…")
+                # ── 4. Upload ─────────────────────────────────────────────
+                await self._progress(job, 90, "Upload de la vidéo…")
                 s3_key    = f"videos/{product.id}/{job.id}.mp4"
                 final_url = await upload_file(
                     final_path.read_bytes(), s3_key, "video/mp4"
                 )
 
-            # ── 7. Mise à jour BDD ────────────────────────────────────────
+            # ── 5. Mise à jour BDD ────────────────────────────────────────
             await job.set({
                 VideoJob.status:       "completed",
                 VideoJob.progress:     100,
@@ -300,143 +294,103 @@ class AdVideoService:
                 VideoJob.completed_at: datetime.now(timezone.utc),
             })
             await product.set({Product.video_url: final_url})
-            logger.info("Vidéo publicitaire générée",
-                        product_id=str(product.id), url=final_url)
+            logger.info("Vidéo générée", product_id=str(product.id), url=final_url)
 
         except Exception as exc:
             msg = str(exc)
-            logger.error("Erreur génération vidéo pub", error=msg, job_id=str(job.id))
+            logger.error("Erreur génération vidéo", error=msg, job_id=str(job.id))
             await job.set({VideoJob.status: "failed", VideoJob.progress: 0,
                            VideoJob.step: "", VideoJob.error: msg})
 
-    # ── FFmpeg helpers ────────────────────────────────────────────────────────
+    # ── FFmpeg : 1 seule passe (slideshow + audio + overlay) ─────────────────
 
-    async def _create_slideshow(
-        self, images: list[Path], output: Path
+    async def _build_video_single_pass(
+        self,
+        images: list[Path],
+        audio: Path,
+        output: Path,
+        phone: str = "",
+        website: str = "",
     ) -> None:
         """
-        Crée un slideshow 1080×1920 (9:16) avec cross-fade entre les images.
-        Chaque image est affichée SECS_PER_IMAGE secondes.
+        Génère la vidéo finale en UNE seule passe FFmpeg :
+        - Slideshow 720×1280 (9:16) avec transitions simples (plus rapide que xfade)
+        - Voix off mixée
+        - Overlay contact en bas (optionnel)
+        - Preset ultrafast pour minimiser le temps d'encodage
         """
         n   = len(images)
-        fps = 25
-        dur = SECS_PER_IMAGE
-        fade_duration = 0.5   # secondes de cross-fade
+        fps = 24
+        dur = SECS_PER_IMAGE  # secondes par image
+        audio_idx = n         # index de l'input audio dans la commande ffmpeg
 
-        # Construire les inputs ffmpeg
-        # Toutes les images sauf la dernière ont du padding pour le cross-fade.
-        # La dernière image n'a besoin que de SECS_PER_IMAGE secondes.
+        # ── Inputs ────────────────────────────────────────────────────────
         cmd: list[str] = [FFMPEG_BIN, "-y"]
-        for idx, p in enumerate(images):
-            t = dur if (n == 1 or idx == n - 1) else str(dur + fade_duration)
-            cmd += ["-loop", "1", "-t", str(t), "-i", str(p)]
+        for p in images:
+            cmd += ["-loop", "1", "-t", str(dur), "-i", str(p)]
+        cmd += ["-i", str(audio)]
 
-        # Filter complex : scale + pad + cross-fade entre segments
-        filters: list[str] = []
+        # ── Overlay contact : textes en bas ───────────────────────────────
+        def _esc(t: str) -> str:
+            return t.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
 
-        # Scale & pad chaque image en 1080×1920 (format portrait)
+        font_arg = f"fontfile='{FONT_PATH}':" if FONT_PATH else ""
+        overlay: list[str] = []
+        if phone or website:
+            overlay.append("drawbox=x=0:y=ih-100:w=iw:h=100:color=black@0.65:t=fill")
+        if phone:
+            overlay.append(
+                f"drawtext={font_arg}text='{_esc(phone)}':"
+                f"fontsize=36:fontcolor=white:x=(w-text_w)/2:y=h-78:"
+                f"shadowcolor=black:shadowx=2:shadowy=2"
+            )
+        if website:
+            overlay.append(
+                f"drawtext={font_arg}text='{_esc(website)}':"
+                f"fontsize=28:fontcolor=#a3e635:x=(w-text_w)/2:y=h-40:"
+                f"shadowcolor=black:shadowx=1:shadowy=1"
+            )
+
+        # ── Filter complex ────────────────────────────────────────────────
+        filter_parts: list[str] = []
+
+        # 1. Scale + pad chaque image en 720×1280
         for i in range(n):
-            filters.append(
-                f"[{i}:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
-                f"pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black,"
+            filter_parts.append(
+                f"[{i}:v]scale=720:1280:force_original_aspect_ratio=decrease,"
+                f"pad=720:1280:(ow-iw)/2:(oh-ih)/2:color=black,"
                 f"setsar=1,fps={fps}[s{i}]"
             )
 
+        # 2. Concat (coupures nettes — beaucoup plus rapide que xfade)
+        concat_out = "[vc]" if overlay else "[vout]"
         if n == 1:
-            # Une seule image : pas de cross-fade nécessaire
-            filters.append(f"[s0]setpts=PTS-STARTPTS[vout]")
+            filter_parts.append(f"[s0]setpts=PTS-STARTPTS{concat_out}")
         else:
-            # Cross-fade enchaîné
-            prev = "s0"
-            for i in range(1, n):
-                offset = i * dur - fade_duration * i
-                out    = f"cf{i}" if i < n - 1 else "vout"
-                filters.append(
-                    f"[{prev}][s{i}]xfade=transition=fade:"
-                    f"duration={fade_duration}:offset={offset:.2f}[{out}]"
-                )
-                prev = out
+            inputs_str = "".join(f"[s{i}]" for i in range(n))
+            filter_parts.append(f"{inputs_str}concat=n={n}:v=1:a=0{concat_out}")
 
-        filter_complex = ";".join(filters)
+        # 3. Overlay contact (optionnel)
+        if overlay:
+            filter_parts.append(f"[vc]{','.join(overlay)}[vout]")
+
+        filter_complex = ";".join(filter_parts)
 
         cmd += [
             "-filter_complex", filter_complex,
             "-map", "[vout]",
+            "-map", f"{audio_idx}:a",
             "-c:v", "libx264",
-            "-preset", "fast",
+            "-preset", "ultrafast",   # 5-10x plus rapide que "fast"
+            "-crf", "28",             # qualité légèrement réduite (invisible sur mobile)
             "-pix_fmt", "yuv420p",
-            str(output),
-        ]
-
-        await self._run_ffmpeg(cmd, "slideshow")
-
-    async def _mix_audio(
-        self, video: Path, audio: Path, output: Path
-    ) -> None:
-        """Superpose la voix off sur la vidéo. La vidéo s'arrête à la fin de l'audio."""
-        cmd = [
-            FFMPEG_BIN, "-y",
-            "-i", str(video),
-            "-i", str(audio),
-            "-map", "0:v",
-            "-map", "1:a",
-            "-c:v", "copy",
             "-c:a", "aac",
-            "-b:a", "128k",
-            "-shortest",        # s'arrête quand le plus court (audio) se termine
+            "-b:a", "96k",
+            "-shortest",              # durée = longueur de la voix off
             str(output),
         ]
-        await self._run_ffmpeg(cmd, "mix_audio")
 
-    async def _add_contact_overlay(
-        self, video: Path, output: Path, phone: str, website: str
-    ) -> None:
-        """
-        Superpose le numéro de téléphone et l'URL du site en bas de la vidéo.
-        Format portrait 9:16 (1080×1920). Fond semi-transparent noir.
-        """
-        # Échapper les caractères spéciaux pour le filtre drawtext
-        def _esc(text: str) -> str:
-            return (text
-                    .replace("\\", "\\\\")
-                    .replace("'", "\\'")
-                    .replace(":", "\\:")
-                    )
-
-        font_arg = f"fontfile='{FONT_PATH}':" if FONT_PATH else ""
-        filters: list[str] = []
-
-        # Bande de fond en bas (hauteur 120px)
-        filters.append(
-            "drawbox=x=0:y=ih-120:w=iw:h=120:color=black@0.65:t=fill"
-        )
-
-        # Ligne 1 — numéro de téléphone (y=ih-95)
-        if phone:
-            filters.append(
-                f"drawtext={font_arg}text='{_esc(phone)}':"
-                f"fontsize=42:fontcolor=white:x=(w-text_w)/2:y=h-95:"
-                f"shadowcolor=black:shadowx=2:shadowy=2"
-            )
-
-        # Ligne 2 — URL boutique (y=ih-48)
-        if website:
-            filters.append(
-                f"drawtext={font_arg}text='{_esc(website)}':"
-                f"fontsize=34:fontcolor=#a3e635:x=(w-text_w)/2:y=h-48:"
-                f"shadowcolor=black:shadowx=1:shadowy=1"
-            )
-
-        vf = ",".join(filters)
-        cmd = [
-            FFMPEG_BIN, "-y",
-            "-i", str(video),
-            "-vf", vf,
-            "-c:v", "libx264", "-preset", "fast", "-pix_fmt", "yuv420p",
-            "-c:a", "copy",
-            str(output),
-        ]
-        await self._run_ffmpeg(cmd, "contact_overlay")
+        await self._run_ffmpeg(cmd, "single_pass")
 
     @staticmethod
     async def _run_ffmpeg(cmd: list[str], step: str) -> None:
