@@ -86,18 +86,32 @@ async def cancel_video_job(
     job_id: str,
     admin: User = Depends(require_admin),
 ) -> dict:
-    job = await VideoJob.get(job_id)
-    if not job:
+    from bson import ObjectId
+    from bson.errors import InvalidId
+
+    # Convertir job_id en ObjectId de façon sécurisée
+    try:
+        oid = ObjectId(job_id)
+    except (InvalidId, TypeError):
+        raise HTTPException(status_code=400, detail=f"job_id invalide : '{job_id}'")
+
+    collection = VideoJob.get_motor_collection()
+
+    # Vérifier l'existence et le statut directement en MongoDB (sans Beanie/Pydantic)
+    doc = await collection.find_one({"_id": oid})
+    if not doc:
         raise HTTPException(status_code=404, detail="Tâche introuvable")
-    if job.status not in ("pending", "processing"):
+
+    current_status = doc.get("status", "")
+    if current_status not in ("pending", "processing"):
         raise HTTPException(
             status_code=400,
-            detail=f"Impossible d'annuler une tâche avec le statut '{job.status}'",
+            detail=f"Impossible d'annuler — statut actuel : '{current_status}'",
         )
-    # Update direct MongoDB — bypass Pydantic pour éviter conflit de validation
-    collection = VideoJob.get_motor_collection()
+
+    # Update direct MongoDB — bypass Pydantic pour éviter tout conflit de validation
     await collection.update_one(
-        {"_id": job.id},
+        {"_id": oid},
         {"$set": {"status": "cancelled", "progress": 0,
                   "step": "Annulé par l'administrateur"}},
     )

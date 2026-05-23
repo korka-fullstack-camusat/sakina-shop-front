@@ -288,7 +288,11 @@ export default function VideosPage() {
       setJobToCancel(null);
       qc.invalidateQueries({ queryKey: ["all-video-jobs"] });
     },
-    onError: () => toast.error("Erreur lors de l'annulation"),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail || err?.message || "Erreur inconnue";
+      toast.error(`Annulation échouée : ${msg}`, { duration: 8000 });
+    },
   });
 
   const productMap = Object.fromEntries(products.map((p) => [p.id, p]));

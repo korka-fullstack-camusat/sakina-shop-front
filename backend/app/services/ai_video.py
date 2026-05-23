@@ -227,6 +227,13 @@ class AdVideoService:
     async def _progress(self, job: VideoJob, pct: int, step: str) -> None:
         await job.set({VideoJob.progress: pct, VideoJob.step: step})
 
+    async def _is_cancelled(self, job: VideoJob) -> bool:
+        """Vérifie en base si le job a été annulé pendant la génération."""
+        from app.models.video import VideoJob as VJ
+        col = VJ.get_motor_collection()
+        doc = await col.find_one({"_id": job.id}, {"status": 1})
+        return doc is not None and doc.get("status") == "cancelled"
+
     async def generate_video_for_product(self, job: VideoJob, product: Product) -> None:
         try:
             await job.set({VideoJob.status: "processing", VideoJob.progress: 0,
@@ -265,6 +272,11 @@ class AdVideoService:
                 )
                 logger.info("Images + TTS prêts", images=len(img_paths))
 
+                # ── Vérification annulation ───────────────────────────────
+                if await self._is_cancelled(job):
+                    logger.info("Job annulé pendant le chargement", job_id=str(job.id))
+                    return
+
                 # ── 2. Infos contact (shop settings) ─────────────────────
                 await self._progress(job, 40, "Préparation de la vidéo…")
                 shop    = await ShopSettings.find_one(ShopSettings.key == "main")
@@ -278,6 +290,11 @@ class AdVideoService:
                     img_paths, audio_path, final_path, phone, website
                 )
 
+                # ── Vérification annulation après FFmpeg ──────────────────
+                if await self._is_cancelled(job):
+                    logger.info("Job annulé après encodage", job_id=str(job.id))
+                    return
+
                 # ── 4. Upload ─────────────────────────────────────────────
                 await self._progress(job, 90, "Upload de la vidéo…")
                 s3_key    = f"videos/{product.id}/{job.id}.mp4"
@@ -285,7 +302,11 @@ class AdVideoService:
                     final_path.read_bytes(), s3_key, "video/mp4"
                 )
 
-            # ── 5. Mise à jour BDD ────────────────────────────────────────
+            # ── 5. Mise à jour BDD (sauf si annulé entre temps) ──────────
+            if await self._is_cancelled(job):
+                logger.info("Job annulé après upload, vidéo ignorée", job_id=str(job.id))
+                return
+
             await job.set({
                 VideoJob.status:       "completed",
                 VideoJob.progress:     100,
@@ -299,8 +320,10 @@ class AdVideoService:
         except Exception as exc:
             msg = str(exc)
             logger.error("Erreur génération vidéo", error=msg, job_id=str(job.id))
-            await job.set({VideoJob.status: "failed", VideoJob.progress: 0,
-                           VideoJob.step: "", VideoJob.error: msg})
+            # Ne pas écraser si le job a été annulé manuellement
+            if not await self._is_cancelled(job):
+                await job.set({VideoJob.status: "failed", VideoJob.progress: 0,
+                               VideoJob.step: "", VideoJob.error: msg})
 
     # ── FFmpeg : 1 seule passe (slideshow + audio + overlay) ─────────────────
 
