@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/auth";
 import { useQuery } from "@tanstack/react-query";
-import { ordersApi } from "@/lib/api";
+import { ordersApi, api } from "@/lib/api";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { Menu, Bell } from "lucide-react";
 import Image from "next/image";
@@ -28,6 +28,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Ferme le sidebar mobile au changement de page
   useEffect(() => { setSidebarOpen(false); }, [pathname]);
+
+  // Wake-up Render : ping /health au chargement pour réveiller le serveur free tier
+  // (évite le 502 "CORS error" qui apparaît quand Render dort)
+  useEffect(() => {
+    api.get("/health").catch(() => {});          // silencieux si déjà éveillé
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;

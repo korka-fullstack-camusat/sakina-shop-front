@@ -47,15 +47,12 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+# allow_origins=["*"] + allow_credentials=False : compatible spec CORS
+# On utilise Bearer tokens (headers), pas de cookies → credentials inutile
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://sakina-shop.vercel.app",
-        "https://sakina-shop-196evjs8i-korka-camusats-projects.vercel.app",
-        "https://sakina-shop-1t7fg19l8-korka-camusats-projects.vercel.app",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Cache", "X-Response-Time"],
