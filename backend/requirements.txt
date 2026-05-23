@@ -16,4 +16,5 @@ tenacity>=9.0.0
 structlog>=24.4.0
 slowapi>=0.1.9
 edge-tts>=7.0.0
+gTTS>=2.5.0
 imageio-ffmpeg>=0.5.1

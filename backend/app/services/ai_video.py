@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 import httpx
 import edge_tts
 import imageio_ffmpeg
+from gtts import gTTS
 
 from app.core.config import settings
 from app.core.logging import logger
@@ -261,16 +262,34 @@ class AdVideoService:
                     return paths
 
                 async def _generate_tts() -> Path | None:
-                    """Génère la voix off — retourne None si TTS indisponible."""
+                    """
+                    Génère la voix off française.
+                    1. Tente edge-tts (Microsoft, voix naturelle)
+                    2. Fallback gTTS (Google, HTTP simple — fonctionne sur tous les serveurs)
+                    3. Si tout échoue, vidéo sans audio
+                    """
                     audio = tmpdir / "voiceover.mp3"
+                    # ── Essai 1 : edge-tts (WebSocket Microsoft) ──────────
                     try:
                         communicate = edge_tts.Communicate(script, voice=TTS_VOICE,
                                                            rate="+5%", volume="+10%")
                         await communicate.save(str(audio))
+                        logger.info("TTS edge-tts OK")
                         return audio
-                    except Exception as tts_err:
-                        logger.warning("TTS échoué, vidéo sans voix off", error=str(tts_err))
-                        return None   # fallback : pas d'audio
+                    except Exception as e1:
+                        logger.warning("edge-tts échoué, essai gTTS", error=str(e1))
+
+                    # ── Essai 2 : gTTS (HTTP Google — marche sur Render) ──
+                    try:
+                        def _gtts_sync():
+                            tts = gTTS(text=script, lang="fr", slow=False)
+                            tts.save(str(audio))
+                        await asyncio.get_event_loop().run_in_executor(None, _gtts_sync)
+                        logger.info("TTS gTTS OK")
+                        return audio
+                    except Exception as e2:
+                        logger.warning("gTTS échoué aussi, vidéo sans voix off", error=str(e2))
+                        return None   # fallback final : pas d'audio
 
                 img_paths, audio_path = await asyncio.gather(
                     _download_images(), _generate_tts()
