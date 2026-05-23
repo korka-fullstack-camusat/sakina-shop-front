@@ -63,8 +63,15 @@ FONT_PATH = _find_font()
 TTS_VOICE   = "fr-FR-DeniseNeural"   # voix féminine naturelle
 # Alternatives : "fr-FR-HenriNeural" (masculin), "fr-FR-EloiseNeural" (féminin jeune)
 
-# Durée d'affichage de chaque image (secondes)
-SECS_PER_IMAGE = 3
+# Durée d'affichage de chaque image (secondes) — 2s = vidéo plus courte = encodage plus rapide
+SECS_PER_IMAGE = 2
+
+# Résolution de sortie — 480p portrait (9:16) : 3× moins de pixels que 720p → beaucoup plus rapide
+VIDEO_WIDTH  = 480
+VIDEO_HEIGHT = 854
+
+# Nombre max d'images utilisées — limiter pour réduire la durée totale de la vidéo
+MAX_IMAGES = 4
 
 # ── Détection clé Fal.ai ─────────────────────────────────────────────────────
 _FAKE_KEYS = {"", "your-runway-key", "CHANGE_ME", "unused"}
@@ -279,7 +286,7 @@ class AdVideoService:
 
                 async def _download_images() -> list[Path]:
                     paths: list[Path] = []
-                    for idx, url in enumerate(product.images):
+                    for idx, url in enumerate(product.images[:MAX_IMAGES]):
                         try:
                             data, mime = await _fetch_image_bytes(url)
                             ext  = (mimetypes.guess_extension(mime) or ".jpg").replace(".jpe", ".jpg")
@@ -403,18 +410,20 @@ class AdVideoService:
     ) -> None:
         """
         Génère la vidéo finale en UNE seule passe FFmpeg :
-        - Slideshow 720×1280 (9:16) avec transitions simples (plus rapide que xfade)
-        - Voix off mixée
+        - Slideshow 480×854 (9:16) — 3× moins de pixels que 720p, encodage rapide
+        - Voix off mixée (optionnelle)
         - Overlay contact en bas (optionnel)
-        - Preset ultrafast pour minimiser le temps d'encodage
+        - Preset ultrafast + threads=1 pour Render free tier
         """
         n   = len(images)
         fps = 24
-        dur = SECS_PER_IMAGE  # secondes par image
-        audio_idx = n         # index de l'input audio dans la commande ffmpeg
+        dur = SECS_PER_IMAGE
+        audio_idx = n
+
+        W, H = VIDEO_WIDTH, VIDEO_HEIGHT   # 480×854
 
         # ── Inputs ────────────────────────────────────────────────────────
-        cmd: list[str] = [FFMPEG_BIN, "-y"]
+        cmd: list[str] = [FFMPEG_BIN, "-y", "-threads", "1"]
         for p in images:
             cmd += ["-loop", "1", "-t", str(dur), "-i", str(p)]
         if audio:
@@ -427,28 +436,28 @@ class AdVideoService:
         font_arg = f"fontfile='{FONT_PATH}':" if FONT_PATH else ""
         overlay: list[str] = []
         if phone or website:
-            overlay.append("drawbox=x=0:y=ih-100:w=iw:h=100:color=black@0.65:t=fill")
+            overlay.append("drawbox=x=0:y=ih-80:w=iw:h=80:color=black@0.65:t=fill")
         if phone:
             overlay.append(
                 f"drawtext={font_arg}text='{_esc(phone)}':"
-                f"fontsize=36:fontcolor=white:x=(w-text_w)/2:y=h-78:"
+                f"fontsize=28:fontcolor=white:x=(w-text_w)/2:y=h-62:"
                 f"shadowcolor=black:shadowx=2:shadowy=2"
             )
         if website:
             overlay.append(
                 f"drawtext={font_arg}text='{_esc(website)}':"
-                f"fontsize=28:fontcolor=#a3e635:x=(w-text_w)/2:y=h-40:"
+                f"fontsize=22:fontcolor=#a3e635:x=(w-text_w)/2:y=h-32:"
                 f"shadowcolor=black:shadowx=1:shadowy=1"
             )
 
         # ── Filter complex ────────────────────────────────────────────────
         filter_parts: list[str] = []
 
-        # 1. Scale + pad chaque image en 720×1280
+        # 1. Scale + pad chaque image en 480×854
         for i in range(n):
             filter_parts.append(
-                f"[{i}:v]scale=720:1280:force_original_aspect_ratio=decrease,"
-                f"pad=720:1280:(ow-iw)/2:(oh-ih)/2:color=black,"
+                f"[{i}:v]scale={W}:{H}:force_original_aspect_ratio=decrease,"
+                f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2:color=black,"
                 f"setsar=1,fps={fps}[s{i}]"
             )
 
@@ -470,16 +479,20 @@ class AdVideoService:
         if audio:
             cmd += [
                 "-map", f"{audio_idx}:a",
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
+                "-c:v", "libx264", "-preset", "ultrafast",
+                "-crf", "32",          # 32 vs 28 : qualité légèrement réduite mais 2× plus rapide
+                "-tune", "stillimage", # optimisé pour les diaporamas (images fixes)
                 "-pix_fmt", "yuv420p",
-                "-c:a", "aac", "-b:a", "96k",
+                "-c:a", "aac", "-b:a", "64k",  # 64k suffisant pour voix off
                 "-shortest",
             ]
         else:
             cmd += [
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
+                "-c:v", "libx264", "-preset", "ultrafast",
+                "-crf", "32",
+                "-tune", "stillimage",
                 "-pix_fmt", "yuv420p",
-                "-an",   # pas d'audio
+                "-an",
             ]
         cmd.append(str(output))
 
