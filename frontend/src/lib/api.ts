@@ -104,6 +104,7 @@ export const videosApi = {
   getJob:        (job_id: string) => api.get<VideoJob>(`/videos/job/${job_id}`),
   listByProduct: (product_id: string) =>
     api.get<VideoJob[]>(`/videos/product/${product_id}`),
+  cancelJob:     (job_id: string) => api.post<{ cancelled: boolean }>(`/videos/job/${job_id}/cancel`),
   deleteJob:     (job_id: string) => api.delete<{ deleted: boolean }>(`/videos/job/${job_id}`),
 };
 

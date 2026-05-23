@@ -20,7 +20,7 @@ interface VideoJob {
   id: string;
   product_id: string;
   prompt: string;
-  status: "pending" | "processing" | "completed" | "failed";
+  status: "pending" | "processing" | "completed" | "failed" | "cancelled";
   progress: number;
   step: string;
   runway_task_id: string | null;

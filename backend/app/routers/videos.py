@@ -81,6 +81,28 @@ async def list_product_videos(
     return docs_to_list(jobs)
 
 
+@router.post("/job/{job_id}/cancel", summary="[Admin] Annuler une génération en cours")
+async def cancel_video_job(
+    job_id: str,
+    admin: User = Depends(require_admin),
+) -> dict:
+    job = await VideoJob.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Tâche introuvable")
+    if job.status not in ("pending", "processing"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Impossible d'annuler une tâche avec le statut '{job.status}'",
+        )
+    await job.set({
+        VideoJob.status:   "cancelled",
+        VideoJob.progress: 0,
+        VideoJob.step:     "Annulé par l'administrateur",
+    })
+    logger.info("Job vidéo annulé", job_id=job_id)
+    return {"cancelled": True, "job_id": job_id}
+
+
 @router.delete("/job/{job_id}", summary="[Admin] Supprimer une vidéo générée")
 async def delete_video_job(
     job_id: str,

@@ -4,16 +4,86 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { productsApi, videosApi, resolveUrl } from "@/lib/api";
 import { VideoGenerateModal } from "@/components/admin/VideoGenerateModal";
 import {
-  Film, Play, Clock, CheckCircle, XCircle, Loader2, Plus, Trash2, AlertTriangle, X, Download,
+  Film, Play, Clock, CheckCircle, XCircle, Loader2, Plus, Trash2,
+  AlertTriangle, X, Download, Ban,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-const STATUS_CONFIG = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   pending:    { label: "En attente",  color: "bg-gray-100 text-gray-600",      icon: Clock        },
-  processing: { label: "En cours…",  color: "bg-blue-50 text-blue-600",       icon: Loader2      },
-  completed:  { label: "Terminé",     color: "bg-emerald-50 text-emerald-700", icon: CheckCircle  },
-  failed:     { label: "Échoué",      color: "bg-red-50 text-red-600",         icon: XCircle      },
+  processing: { label: "En cours…",  color: "bg-blue-50 text-blue-600",   icon: Loader2      },
+  completed:  { label: "Terminé",    color: "bg-emerald-50 text-emerald-700", icon: CheckCircle },
+  failed:     { label: "Échoué", color: "bg-red-50 text-red-600",     icon: XCircle      },
+  cancelled:  { label: "Annulé",     color: "bg-orange-50 text-orange-600", icon: Ban         },
 };
+
+// ── Modal d'annulation de génération ─────────────────────────────────────────
+function CancelConfirmModal({
+  job,
+  productName,
+  onConfirm,
+  onCancel,
+  isPending,
+}: {
+  job: VideoJob;
+  productName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isPending: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div className="flex items-center gap-2 text-orange-600">
+            <Ban size={18} />
+            <h3 className="font-bold text-base">Annuler la génération</h3>
+          </div>
+          <button onClick={onCancel} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-sm text-gray-600">
+            Voulez-vous annuler la génération vidéo de{" "}
+            <span className="font-semibold text-gray-900">{productName}</span> ?
+          </p>
+          <div className="bg-orange-50 rounded-xl p-3 text-xs text-orange-700 space-y-1">
+            <p className="font-semibold">ℹ️ Ce qui se passe :</p>
+            <ul className="list-disc list-inside space-y-0.5 text-orange-600">
+              <li>Le job sera marqué comme annulé</li>
+              <li>Si FFmpeg est en cours, il finira sa frame actuelle</li>
+              <li>Aucune vidéo ne sera sauvegardée</li>
+            </ul>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={onCancel}
+              disabled={isPending}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold
+                         text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Continuer la génération
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={isPending}
+              className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white
+                         text-sm font-semibold transition-colors disabled:opacity-60
+                         flex items-center justify-center gap-2"
+            >
+              {isPending
+                ? <><Loader2 size={14} className="animate-spin" /> Annulation…</>
+                : <><Ban size={14} /> Annuler</>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Modal de confirmation de suppression ──────────────────────────────────────
 function DeleteConfirmModal({
@@ -170,9 +240,10 @@ async function downloadVideo(url: string, filename: string) {
 // ── Page principale ───────────────────────────────────────────────────────────
 export default function VideosPage() {
   const qc = useQueryClient();
-  const [showPicker,     setShowPicker]     = useState(false);
+  const [showPicker,      setShowPicker]      = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [jobToDelete, setJobToDelete]         = useState<VideoJob | null>(null);
+  const [jobToDelete,     setJobToDelete]     = useState<VideoJob | null>(null);
+  const [jobToCancel,     setJobToCancel]     = useState<VideoJob | null>(null);
 
   const { data: products = [] } = useQuery({
     queryKey: ["admin-products"],
@@ -210,9 +281,19 @@ export default function VideosPage() {
     onError: () => toast.error("Erreur lors de la suppression"),
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: (jobId: string) => videosApi.cancelJob(jobId),
+    onSuccess: () => {
+      toast.success("Génération annulée");
+      setJobToCancel(null);
+      qc.invalidateQueries({ queryKey: ["all-video-jobs"] });
+    },
+    onError: () => toast.error("Erreur lors de l'annulation"),
+  });
+
   const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
 
-  const visibleJobs = jobs.filter((j) => j.status !== "failed");
+  const visibleJobs = jobs.filter((j) => j.status !== "failed" && j.status !== "cancelled");
 
   const stats = {
     total:      jobs.length,
@@ -284,7 +365,16 @@ export default function VideosPage() {
               return (
                 <div
                   key={job.id}
-                  className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50/60 transition-colors"
+                  onClick={() => {
+                    if (job.status === "pending" || job.status === "processing") {
+                      setJobToCancel(job);
+                    }
+                  }}
+                  className={`flex items-center gap-4 px-5 py-3.5 transition-colors
+                    ${(job.status === "pending" || job.status === "processing")
+                      ? "hover:bg-orange-50/60 cursor-pointer"
+                      : "hover:bg-gray-50/60"
+                    }`}
                 >
                   {/* Miniature produit */}
                   <div className="w-10 h-10 rounded-xl overflow-hidden bg-cream-100 flex-shrink-0">
@@ -330,6 +420,15 @@ export default function VideosPage() {
                     )}
                   </div>
 
+                  {/* Chip "Annuler" sur les jobs actifs */}
+                  {(job.status === "pending" || job.status === "processing") && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold
+                                     text-orange-500 bg-orange-50 px-2 py-1 rounded-full flex-shrink-0
+                                     border border-orange-200 animate-pulse">
+                      <Ban size={9} /> Annuler
+                    </span>
+                  )}
+
                   {/* Badge statut — masqué si en cours (remplacé par la barre) */}
                   {job.status !== "processing" && job.status !== "pending" && (
                     <span
@@ -348,16 +447,14 @@ export default function VideosPage() {
                         href={job.video_url}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="p-2 text-brand-600 hover:bg-brand-50 rounded-lg transition-colors flex-shrink-0"
                         title="Voir la vidéo"
                       >
                         <Play size={15} />
                       </a>
                       <button
-                        onClick={() => downloadVideo(
-                          job.video_url!,
-                          `${productMap[job.product_id]?.name ?? "video"}.mp4`
-                        )}
+                        onClick={(e) => { e.stopPropagation(); downloadVideo(job.video_url!, `${productMap[job.product_id]?.name ?? "video"}.mp4`); }}
                         className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex-shrink-0"
                         title="Télécharger la vidéo"
                       >
@@ -369,7 +466,7 @@ export default function VideosPage() {
                   {/* Supprimer — uniquement pour les vidéos terminées */}
                   {job.status === "completed" && (
                     <button
-                      onClick={() => setJobToDelete(job)}
+                      onClick={(e) => { e.stopPropagation(); setJobToDelete(job); }}
                       className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg
                                  transition-colors flex-shrink-0"
                       title="Supprimer la vidéo"
@@ -401,6 +498,17 @@ export default function VideosPage() {
             setSelectedProduct(null);
             qc.invalidateQueries({ queryKey: ["all-video-jobs"] });
           }}
+        />
+      )}
+
+      {/* Modal annulation génération */}
+      {jobToCancel && (
+        <CancelConfirmModal
+          job={jobToCancel}
+          productName={productMap[jobToCancel.product_id]?.name ?? "ce produit"}
+          onConfirm={() => cancelMutation.mutate(jobToCancel.id)}
+          onCancel={() => setJobToCancel(null)}
+          isPending={cancelMutation.isPending}
         />
       )}
 
