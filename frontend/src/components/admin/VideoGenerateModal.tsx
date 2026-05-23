@@ -93,7 +93,10 @@ export function VideoGenerateModal({ product, onClose }: Props) {
         if (res.status === "completed" || res.status === "failed") {
           clearInterval(interval);
           if (res.status === "completed") toast.success("Vidéo générée avec succès !");
-          if (res.status === "failed")    toast.error("Génération échouée");
+          if (res.status === "failed") {
+            const errMsg = res.error || "Erreur inconnue";
+            toast.error(`Génération échouée : ${errMsg}`, { duration: 10000 });
+          }
         }
       } catch {}
     }, 2000);

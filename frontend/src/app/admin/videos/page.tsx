@@ -297,7 +297,8 @@ export default function VideosPage() {
 
   const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
 
-  const visibleJobs = jobs.filter((j) => j.status !== "failed" && j.status !== "cancelled");
+  // Affiche tout sauf "cancelled" — les "failed" restent visibles pour voir l'erreur
+  const visibleJobs = jobs.filter((j) => j.status !== "cancelled");
 
   const stats = {
     total:      jobs.length,
@@ -415,12 +416,20 @@ export default function VideosPage() {
                         </p>
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {new Date(job.created_at).toLocaleDateString("fr-FR", {
-                          day: "2-digit", month: "short", year: "numeric",
-                          hour: "2-digit", minute: "2-digit",
-                        })}
-                      </p>
+                      <div className="mt-0.5 space-y-0.5">
+                        <p className="text-xs text-gray-400">
+                          {new Date(job.created_at).toLocaleDateString("fr-FR", {
+                            day: "2-digit", month: "short", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </p>
+                        {/* Affiche l'erreur si le job a échoué */}
+                        {job.status === "failed" && job.error && (
+                          <p className="text-[10px] text-red-500 font-medium truncate max-w-xs" title={job.error}>
+                            ⚠ {job.error}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
 

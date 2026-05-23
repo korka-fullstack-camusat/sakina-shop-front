@@ -260,12 +260,17 @@ class AdVideoService:
                         paths.append(dest)
                     return paths
 
-                async def _generate_tts() -> Path:
+                async def _generate_tts() -> Path | None:
+                    """Génère la voix off — retourne None si TTS indisponible."""
                     audio = tmpdir / "voiceover.mp3"
-                    communicate = edge_tts.Communicate(script, voice=TTS_VOICE,
-                                                       rate="+5%", volume="+10%")
-                    await communicate.save(str(audio))
-                    return audio
+                    try:
+                        communicate = edge_tts.Communicate(script, voice=TTS_VOICE,
+                                                           rate="+5%", volume="+10%")
+                        await communicate.save(str(audio))
+                        return audio
+                    except Exception as tts_err:
+                        logger.warning("TTS échoué, vidéo sans voix off", error=str(tts_err))
+                        return None   # fallback : pas d'audio
 
                 img_paths, audio_path = await asyncio.gather(
                     _download_images(), _generate_tts()
@@ -287,7 +292,7 @@ class AdVideoService:
                 await self._progress(job, 55, "Encodage vidéo en cours…")
                 final_path = tmpdir / "ad_final.mp4"
                 await self._build_video_single_pass(
-                    img_paths, audio_path, final_path, phone, website
+                    img_paths, audio_path, final_path, phone, website  # audio_path peut être None
                 )
 
                 # ── Vérification annulation après FFmpeg ──────────────────
@@ -330,7 +335,7 @@ class AdVideoService:
     async def _build_video_single_pass(
         self,
         images: list[Path],
-        audio: Path,
+        audio: Path | None,
         output: Path,
         phone: str = "",
         website: str = "",
@@ -351,7 +356,8 @@ class AdVideoService:
         cmd: list[str] = [FFMPEG_BIN, "-y"]
         for p in images:
             cmd += ["-loop", "1", "-t", str(dur), "-i", str(p)]
-        cmd += ["-i", str(audio)]
+        if audio:
+            cmd += ["-i", str(audio)]
 
         # ── Overlay contact : textes en bas ───────────────────────────────
         def _esc(t: str) -> str:
@@ -399,19 +405,22 @@ class AdVideoService:
 
         filter_complex = ";".join(filter_parts)
 
-        cmd += [
-            "-filter_complex", filter_complex,
-            "-map", "[vout]",
-            "-map", f"{audio_idx}:a",
-            "-c:v", "libx264",
-            "-preset", "ultrafast",   # 5-10x plus rapide que "fast"
-            "-crf", "28",             # qualité légèrement réduite (invisible sur mobile)
-            "-pix_fmt", "yuv420p",
-            "-c:a", "aac",
-            "-b:a", "96k",
-            "-shortest",              # durée = longueur de la voix off
-            str(output),
-        ]
+        cmd += ["-filter_complex", filter_complex, "-map", "[vout]"]
+        if audio:
+            cmd += [
+                "-map", f"{audio_idx}:a",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "96k",
+                "-shortest",
+            ]
+        else:
+            cmd += [
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
+                "-pix_fmt", "yuv420p",
+                "-an",   # pas d'audio
+            ]
+        cmd.append(str(output))
 
         await self._run_ffmpeg(cmd, "single_pass")
 
