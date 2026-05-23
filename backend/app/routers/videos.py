@@ -94,11 +94,13 @@ async def cancel_video_job(
             status_code=400,
             detail=f"Impossible d'annuler une tâche avec le statut '{job.status}'",
         )
-    await job.set({
-        VideoJob.status:   "cancelled",
-        VideoJob.progress: 0,
-        VideoJob.step:     "Annulé par l'administrateur",
-    })
+    # Update direct MongoDB — bypass Pydantic pour éviter conflit de validation
+    collection = VideoJob.get_motor_collection()
+    await collection.update_one(
+        {"_id": job.id},
+        {"$set": {"status": "cancelled", "progress": 0,
+                  "step": "Annulé par l'administrateur"}},
+    )
     logger.info("Job vidéo annulé", job_id=job_id)
     return {"cancelled": True, "job_id": job_id}
 
